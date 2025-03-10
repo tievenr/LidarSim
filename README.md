@@ -1,12 +1,26 @@
-# React + Vite
+Autonomous Vehicle Simulation with Livotech MID 360 LiDAR**  
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This project simulates a **360° LiDAR environment** for **Digital Twin** applications, focusing on autonomous vehicle testing. Built with **React, Three.js, and @react-three/fiber**, it uses a placeholder **Livotech MID 360 LiDAR** to scan and generate simulated point clouds of the environment.  
 
-Currently, two official plugins are available:
+## **Features**  
+- 3D environment with interactive objects (e.g., boxes, spheres) and a ground plane.  
+- Livotech MID 360 LiDAR placeholder with rotating LiDAR scanning.  
+- Interactive camera controls using `OrbitControls`.  
+- Performance stats using `Stats`.  
+- Simulated point cloud generation to mimic LiDAR data output.  
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## **Setup**  
+1. Clone the repository:  
+   ```sh
+   git clone https://github.com/tievenr/LidarSim.git
+   cd LidarSim
+   ```
+2. Install dependencies:  
+   ```sh
+   npm install
+   ```
+3. Start the development server:  
+   ```sh
+   npm run dev
+   ```
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript and enable type-aware lint rules. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
