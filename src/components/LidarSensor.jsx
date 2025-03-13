@@ -4,11 +4,17 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Sphere } from '@react-three/drei';
 
+/**
+ * LidarSensor component simulates a LiDAR scanner in a Three.js scene
+ */
 const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
 {
     const sensorRef = useRef();
     const pointsRef = useRef();
     const { scene } = useThree();
+    const rayLines = useRef( [] );
+
+    // ===== CONFIGURATION =====
 
     // LiDAR specifications
     const lidarConfig = useMemo( () => ( {
@@ -21,45 +27,87 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
         pointsPerFrame: 10, // How many rays to cast per frame
     } ), [] );
 
+    // ===== STATE MANAGEMENT =====
+
     // State for storing generated point cloud
     const [ pointCloud, setPointCloud ] = useState( [] );
+
+    // Current scanning state (changes over time to simulate scanning)
+    const scanState = useRef( {
+        horizontalAngle: 0,
+        verticalAngles: initializeVerticalAngles( lidarConfig.numChannels, lidarConfig.verticalFOV ),
+        pointCloudData: []
+    } );
+
+    // ===== VISUALIZATION COMPONENTS =====
 
     // Create raycaster once
     const raycaster = useMemo( () => new THREE.Raycaster(), [] );
 
-    // Initialize visualization elements
-    const rayLines = useRef( [] );
+    // Point cloud visualization components
     const pointCloudGeometry = useMemo( () => new THREE.BufferGeometry(), [] );
     const pointCloudMaterial = useMemo( () => new THREE.PointsMaterial( {
         size: 0.1,
         vertexColors: true
     } ), [] );
 
-    // Current angle state (changes over time to simulate scanning)
-    const scanState = useRef( {
-        horizontalAngle: 0,
-        verticalAngles: Array( lidarConfig.numChannels ).fill( 0 ).map( ( _, i ) =>
-            -lidarConfig.verticalFOV / 2 + ( i * lidarConfig.verticalFOV / ( lidarConfig.numChannels - 1 ) )
-        ),
-        pointCloudData: []
-    } );
+    // ===== CORE SCANNING LOGIC =====
 
-    // Cast rays and collect point cloud data
     useFrame( ( state, delta ) =>
     {
         if ( !sensorRef.current ) return;
 
         // Update horizontal angle for rotation
+        updateScanAngle( delta );
+
+        // Get sensor position in world space
+        const sensorPosition = getSensorPosition();
+
+        // Clear previous debug rays
+        clearDebugRays();
+
+        // Get all meshes in the scene that can be intersected
+        const meshesToIntersect = collectIntersectableMeshes();
+
+        // Cast rays for this frame
+        const newPoints = castRaysForFrame( sensorPosition, meshesToIntersect );
+
+        // Update point cloud data
+        updatePointCloudData( newPoints );
+
+        // Update visualization
+        updatePointCloudVisualization();
+    } );
+
+    // ===== HELPER FUNCTIONS =====
+
+    // Initialize vertical angles for LiDAR beams
+    function initializeVerticalAngles ( numChannels, verticalFOV )
+    {
+        return Array( numChannels ).fill( 0 ).map( ( _, i ) =>
+            -verticalFOV / 2 + ( i * verticalFOV / ( numChannels - 1 ) )
+        );
+    }
+
+    // Update the scan angle based on time
+    function updateScanAngle ( delta )
+    {
         scanState.current.horizontalAngle += delta / lidarConfig.scanRate;
         if ( scanState.current.horizontalAngle >= Math.PI * 2 )
         {
             scanState.current.horizontalAngle = 0;
         }
+    }
 
-        const sensorPosition = new THREE.Vector3().setFromMatrixPosition( sensorRef.current.matrixWorld );
-        const newPoints = [];
+    // Get current sensor position from the 3D world
+    function getSensorPosition ()
+    {
+        return new THREE.Vector3().setFromMatrixPosition( sensorRef.current.matrixWorld );
+    }
 
-        // Clear previous debug rays
+    // Clear previous debug ray visualizations
+    function clearDebugRays ()
+    {
         if ( showDebugRays )
         {
             rayLines.current.forEach( line =>
@@ -71,83 +119,118 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
             } );
             rayLines.current = [];
         }
+    }
 
-        // Get all meshes in the scene that can be intersected
-        const meshesToIntersect = [];
+    // Collect all meshes in the scene that can be intersected by the LiDAR
+    function collectIntersectableMeshes ()
+    {
+        const meshes = [];
         scene.traverse( ( object ) =>
         {
-            // Only include meshes and exclude the sensor itself to avoid self-intersections
             if ( object.isMesh && object !== sensorRef.current )
             {
-                meshesToIntersect.push( object );
+                meshes.push( object );
             }
         } );
+        return meshes;
+    }
 
-        // Cast rays for this frame
+    // Cast multiple rays and collect points
+    function castRaysForFrame ( sensorPosition, meshesToIntersect )
+    {
+        const newPoints = [];
+
         for ( let i = 0; i < lidarConfig.pointsPerFrame; i++ )
         {
-            // Generate a somewhat random horizontal angle for this ray
-            // This simulates the non-repetitive scanning pattern of Livox sensors
+            // Generate somewhat random scanning pattern
             const horizontalOffset = ( Math.random() - 0.5 ) * Math.PI / 36; // Small random offset
             const currentHAngle = scanState.current.horizontalAngle + horizontalOffset;
 
-            // Pick a random vertical channel for this ray
+            // Pick a random vertical channel
             const channelIndex = Math.floor( Math.random() * lidarConfig.numChannels );
             const verticalAngle = scanState.current.verticalAngles[ channelIndex ];
 
-            // Convert to radians
+            // Convert angles to radians
             const hAngleRad = currentHAngle;
             const vAngleRad = THREE.MathUtils.degToRad( verticalAngle );
 
-            // Calculate direction vector
-            const direction = new THREE.Vector3(
-                Math.sin( hAngleRad ) * Math.cos( vAngleRad ),
-                Math.sin( vAngleRad ),
-                Math.cos( hAngleRad ) * Math.cos( vAngleRad )
-            );
+            // Get direction vector
+            const direction = calculateRayDirection( hAngleRad, vAngleRad );
 
-            // Set raycaster origin and direction
-            raycaster.set( sensorPosition, direction );
-
-            // Find intersections with explicitly collected meshes
-            const intersects = raycaster.intersectObjects( meshesToIntersect, false );
-
-            // If we hit something within range
-            if ( intersects.length > 0 &&
-                intersects[ 0 ].distance >= lidarConfig.minRange &&
-                intersects[ 0 ].distance <= lidarConfig.maxRange )
+            // Cast ray and process results
+            const point = castSingleRay( sensorPosition, direction, meshesToIntersect );
+            if ( point )
             {
-
-                const point = intersects[ 0 ].point;
-
-                // Calculate intensity based on distance and angle (simplified model)
-                const distance = intersects[ 0 ].distance;
-                const normalizedDistance = Math.min( distance / lidarConfig.maxRange, 1 );
-                const intensity = 1 - normalizedDistance;
-
-                // Add point to our collection with position and intensity
-                newPoints.push( {
-                    position: [ point.x, point.y, point.z ],
-                    intensity: intensity
-                } );
-
-                // Visualization of ray for debugging
-                if ( showDebugRays )
-                {
-                    const lineGeometry = new THREE.BufferGeometry().setFromPoints( [
-                        sensorPosition,
-                        point
-                    ] );
-                    const lineMaterial = new THREE.LineBasicMaterial( {
-                        color: new THREE.Color( intensity, intensity, intensity )
-                    } );
-                    const line = new THREE.Line( lineGeometry, lineMaterial );
-                    scene.add( line );
-                    rayLines.current.push( line );
-                }
+                newPoints.push( point );
             }
         }
 
+        return newPoints;
+    }
+
+    // Calculate ray direction based on angles
+    function calculateRayDirection ( hAngleRad, vAngleRad )
+    {
+        return new THREE.Vector3(
+            Math.sin( hAngleRad ) * Math.cos( vAngleRad ),
+            Math.sin( vAngleRad ),
+            Math.cos( hAngleRad ) * Math.cos( vAngleRad )
+        );
+    }
+
+    // Cast a single ray and return point data if hit
+    function castSingleRay ( origin, direction, meshesToIntersect )
+    {
+        // Set raycaster origin and direction
+        raycaster.set( origin, direction );
+
+        // Find intersections
+        const intersects = raycaster.intersectObjects( meshesToIntersect, false );
+
+        // If we hit something within range
+        if ( intersects.length > 0 &&
+            intersects[ 0 ].distance >= lidarConfig.minRange &&
+            intersects[ 0 ].distance <= lidarConfig.maxRange )
+        {
+
+            const hitPoint = intersects[ 0 ].point;
+            const distance = intersects[ 0 ].distance;
+
+            // Calculate intensity based on distance
+            const normalizedDistance = Math.min( distance / lidarConfig.maxRange, 1 );
+            const intensity = 1 - normalizedDistance;
+
+            // Create debug ray visualization if enabled
+            if ( showDebugRays )
+            {
+                createDebugRay( origin, hitPoint, intensity );
+            }
+
+            // Return point data
+            return {
+                position: [ hitPoint.x, hitPoint.y, hitPoint.z ],
+                intensity: intensity
+            };
+        }
+
+        return null;
+    }
+
+    // Create debug ray visualization
+    function createDebugRay ( origin, endpoint, intensity )
+    {
+        const lineGeometry = new THREE.BufferGeometry().setFromPoints( [ origin, endpoint ] );
+        const lineMaterial = new THREE.LineBasicMaterial( {
+            color: new THREE.Color( intensity, intensity, intensity )
+        } );
+        const line = new THREE.Line( lineGeometry, lineMaterial );
+        scene.add( line );
+        rayLines.current.push( line );
+    }
+
+    // Update point cloud data with new points
+    function updatePointCloudData ( newPoints )
+    {
         // Add new points to our point cloud data
         scanState.current.pointCloudData = [ ...scanState.current.pointCloudData, ...newPoints ];
 
@@ -159,8 +242,11 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
 
         // Update state for rendering
         setPointCloud( scanState.current.pointCloudData );
+    }
 
-        // Update point cloud visualization
+    // Update visualization of point cloud
+    function updatePointCloudVisualization ()
+    {
         if ( pointsRef.current && scanState.current.pointCloudData.length > 0 )
         {
             const positions = [];
@@ -184,10 +270,12 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
 
             pointCloudGeometry.computeBoundingSphere();
         }
-    } );
+    }
+
+    // ===== EXPORT FUNCTIONALITY =====
 
     // Export point cloud data
-    const exportPointCloud = () =>
+    function exportPointCloud ()
     {
         const data = scanState.current.pointCloudData.map( point => ( {
             x: point.position[ 0 ],
@@ -202,9 +290,9 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
         a.href = url;
         a.download = 'lidar_point_cloud.json';
         a.click();
-    };
+    }
 
-    // Make export function available globally for debugging
+    // Make export function available globally for the UI button
     useEffect( () =>
     {
         window.exportLidarPointCloud = exportPointCloud;
@@ -213,6 +301,8 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
             delete window.exportLidarPointCloud;
         };
     }, [] );
+
+    // ===== RENDER =====
 
     return (
         <>
