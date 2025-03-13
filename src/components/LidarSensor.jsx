@@ -249,9 +249,9 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
         scanState.current.pointCloudData = [ ...scanState.current.pointCloudData, ...newPoints ];
 
         // Limit point cloud size to avoid performance issues
-        if ( scanState.current.pointCloudData.length > 10000 )
+        if ( scanState.current.pointCloudData.length > 200000 )
         {
-            scanState.current.pointCloudData = scanState.current.pointCloudData.slice( -10000 );
+            scanState.current.pointCloudData = scanState.current.pointCloudData.slice( -200000 );
         }
 
         // Update state for rendering
