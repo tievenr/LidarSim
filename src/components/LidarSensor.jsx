@@ -1,4 +1,3 @@
-// src/components/LidarSensor.jsx
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -6,6 +5,7 @@ import { Sphere } from '@react-three/drei';
 
 /**
  * LidarSensor component simulates a LiDAR scanner in a Three.js scene
+ * Stores data in PCD format with x, y, z, intensity, time, tag, and line fields
  */
 const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
 {
@@ -13,6 +13,7 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
     const pointsRef = useRef();
     const { scene } = useThree();
     const rayLines = useRef( [] );
+    const startTime = useRef( Date.now() );
 
     // ===== CONFIGURATION =====
 
@@ -139,6 +140,7 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
     function castRaysForFrame ( sensorPosition, meshesToIntersect )
     {
         const newPoints = [];
+        const currentTime = Date.now() - startTime.current; // Time in ms since start
 
         for ( let i = 0; i < lidarConfig.pointsPerFrame; i++ )
         {
@@ -158,7 +160,14 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
             const direction = calculateRayDirection( hAngleRad, vAngleRad );
 
             // Cast ray and process results
-            const point = castSingleRay( sensorPosition, direction, meshesToIntersect );
+            const point = castSingleRay(
+                sensorPosition,
+                direction,
+                meshesToIntersect,
+                channelIndex,
+                currentTime * 1000 // Convert to microseconds
+            );
+
             if ( point )
             {
                 newPoints.push( point );
@@ -179,7 +188,7 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
     }
 
     // Cast a single ray and return point data if hit
-    function castSingleRay ( origin, direction, meshesToIntersect )
+    function castSingleRay ( origin, direction, meshesToIntersect, channelIndex, timestamp )
     {
         // Set raycaster origin and direction
         raycaster.set( origin, direction );
@@ -196,7 +205,7 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
             const hitPoint = intersects[ 0 ].point;
             const distance = intersects[ 0 ].distance;
 
-            // Calculate intensity based on distance
+            // Calculate intensity based on distance (0-1 range)
             const normalizedDistance = Math.min( distance / lidarConfig.maxRange, 1 );
             const intensity = 1 - normalizedDistance;
 
@@ -206,10 +215,15 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
                 createDebugRay( origin, hitPoint, intensity );
             }
 
-            // Return point data
+            // Return point data in PCD format
             return {
-                position: [ hitPoint.x, hitPoint.y, hitPoint.z ],
-                intensity: intensity
+                x: hitPoint.x,
+                y: hitPoint.y,
+                z: hitPoint.z,
+                intensity: intensity,
+                time: timestamp,
+                tag: Math.floor( Math.random() * 256 ), // Simulate tag value (0-255)
+                line: channelIndex // Use channel index as line value (0-39)
             };
         }
 
@@ -254,7 +268,7 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
 
             scanState.current.pointCloudData.forEach( point =>
             {
-                positions.push( ...point.position );
+                positions.push( point.x, point.y, point.z );
                 const intensity = point.intensity;
                 colors.push( intensity, intensity, intensity );
             } );
@@ -274,16 +288,44 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
 
     // ===== EXPORT FUNCTIONALITY =====
 
-    // Export point cloud data
-    function exportPointCloud ()
+    // Export point cloud data in PCD format
+    function exportPointCloudPCD ()
     {
-        const data = scanState.current.pointCloudData.map( point => ( {
-            x: point.position[ 0 ],
-            y: point.position[ 1 ],
-            z: point.position[ 2 ],
-            intensity: point.intensity
-        } ) );
+        // Generate PCD header
+        const pointCount = scanState.current.pointCloudData.length;
+        let pcdHeader = `VERSION .7
+FIELDS x y z intensity time tag line
+SIZE 4 4 4 4 4 1 1
+TYPE F F F F F U U
+COUNT 1 1 1 1 1 1 1
+WIDTH ${ pointCount }
+HEIGHT 1
+VIEWPOINT 0 0 0 1 0 0 0
+POINTS ${ pointCount }
+DATA ascii
+`;
 
+        // Generate PCD data
+        let pcdData = scanState.current.pointCloudData.map( point =>
+            `${ point.x.toFixed( 6 ) } ${ point.y.toFixed( 6 ) } ${ point.z.toFixed( 6 ) } ${ point.intensity.toFixed( 6 ) } ${ ( point.time / 1000 ).toFixed( 6 ) } ${ point.tag } ${ point.line }`
+        ).join( '\n' );
+
+        // Combine header and data
+        const pcdContent = pcdHeader + pcdData;
+
+        // Create downloadable file
+        const blob = new Blob( [ pcdContent ], { type: 'text/plain' } );
+        const url = URL.createObjectURL( blob );
+        const a = document.createElement( 'a' );
+        a.href = url;
+        a.download = 'lidar_point_cloud.pcd';
+        a.click();
+    }
+
+    // Export point cloud data in JSON format
+    function exportPointCloudJSON ()
+    {
+        const data = scanState.current.pointCloudData;
         const blob = new Blob( [ JSON.stringify( data ) ], { type: 'application/json' } );
         const url = URL.createObjectURL( blob );
         const a = document.createElement( 'a' );
@@ -292,13 +334,15 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
         a.click();
     }
 
-    // Make export function available globally for the UI button
+    // Make export functions available globally for the UI buttons
     useEffect( () =>
     {
-        window.exportLidarPointCloud = exportPointCloud;
+        window.exportLidarPointCloudPCD = exportPointCloudPCD;
+        window.exportLidarPointCloudJSON = exportPointCloudJSON;
         return () =>
         {
-            delete window.exportLidarPointCloud;
+            delete window.exportLidarPointCloudPCD;
+            delete window.exportLidarPointCloudJSON;
         };
     }, [] );
 
