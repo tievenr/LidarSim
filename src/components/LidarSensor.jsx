@@ -337,10 +337,16 @@ DATA ascii
     // Make export functions available globally for the UI buttons
     useEffect( () =>
     {
+        // Keep original export function for backward compatibility
+        window.exportLidarPointCloud = exportPointCloudPCD;
+
+        // Add new export functions
         window.exportLidarPointCloudPCD = exportPointCloudPCD;
         window.exportLidarPointCloudJSON = exportPointCloudJSON;
+
         return () =>
         {
+            delete window.exportLidarPointCloud;
             delete window.exportLidarPointCloudPCD;
             delete window.exportLidarPointCloudJSON;
         };
