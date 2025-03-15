@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createDebugRay } from "./VisualizationLogic";
 
 /**
  * Initialize vertical angles for LiDAR beams
@@ -40,18 +41,6 @@ export function getSensorPosition(sensorRef) {
 }
 
 /**
- * Clear previous debug ray visualizations
- */
-export function clearDebugRays(rayLines) {
-  rayLines.forEach((line) => {
-    if (line && line.parent) {
-      line.parent.remove(line);
-    }
-  });
-  return [];
-}
-
-/**
  * Collect all meshes in the scene that can be intersected by the LiDAR
  */
 export function collectIntersectableMeshes(scene, sensorRef) {
@@ -62,22 +51,6 @@ export function collectIntersectableMeshes(scene, sensorRef) {
     }
   });
   return meshes;
-}
-
-/**
- * Create debug ray visualization
- */
-export function createDebugRay(origin, endpoint, intensity, scene) {
-  const lineGeometry = new THREE.BufferGeometry().setFromPoints([
-    origin,
-    endpoint,
-  ]);
-  const lineMaterial = new THREE.LineBasicMaterial({
-    color: new THREE.Color(intensity, intensity, intensity),
-  });
-  const line = new THREE.Line(lineGeometry, lineMaterial);
-  scene.add(line);
-  return line;
 }
 
 /**

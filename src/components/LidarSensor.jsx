@@ -7,11 +7,16 @@ import
         initializeVerticalAngles,
         updateScanAngle,
         getSensorPosition,
-        clearDebugRays,
         collectIntersectableMeshes,
         castRaysForFrame,
         updatePointCloudData
     } from './ScanningLogic';
+import
+    {
+        updatePointCloudVisualization,
+        clearDebugRays,
+        createPointCloudComponents
+    } from './VisualizationLogic';
 
 /**
  * LidarSensor component simulates a LiDAR scanner in a Three.js scene
@@ -56,11 +61,8 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
     const raycaster = useMemo( () => new THREE.Raycaster(), [] );
 
     // Point cloud visualization components
-    const pointCloudGeometry = useMemo( () => new THREE.BufferGeometry(), [] );
-    const pointCloudMaterial = useMemo( () => new THREE.PointsMaterial( {
-        size: 0.1,
-        vertexColors: true
-    } ), [] );
+    const { pointCloudGeometry, pointCloudMaterial } = useMemo( () =>
+        createPointCloudComponents(), [] );
 
     // ===== CORE SCANNING LOGIC =====
 
@@ -107,36 +109,12 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
         setPointCloud( scanState.current.pointCloudData );
 
         // Update visualization
-        updatePointCloudVisualization();
+        updatePointCloudVisualization(
+            pointsRef,
+            pointCloudGeometry,
+            scanState.current.pointCloudData
+        );
     } );
-
-    // Update visualization of point cloud
-    function updatePointCloudVisualization ()
-    {
-        if ( pointsRef.current && scanState.current.pointCloudData.length > 0 )
-        {
-            const positions = [];
-            const colors = [];
-
-            scanState.current.pointCloudData.forEach( point =>
-            {
-                positions.push( point.x, point.y, point.z );
-                const intensity = point.intensity;
-                colors.push( intensity, intensity, intensity );
-            } );
-
-            pointCloudGeometry.setAttribute(
-                'position',
-                new THREE.Float32BufferAttribute( positions, 3 )
-            );
-            pointCloudGeometry.setAttribute(
-                'color',
-                new THREE.Float32BufferAttribute( colors, 3 )
-            );
-
-            pointCloudGeometry.computeBoundingSphere();
-        }
-    }
 
     // ===== EXPORT FUNCTIONALITY =====
 
