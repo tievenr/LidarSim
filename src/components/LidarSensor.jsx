@@ -17,12 +17,24 @@ import
         clearDebugRays,
         createPointCloudComponents
     } from './VisualizationLogic';
+import
+    {
+        registerExportFunctions
+    } from './ExportLogic';
+import
+    {
+        createLidarConfig
+    } from './LidarConfig';
 
 /**
  * LidarSensor component simulates a LiDAR scanner in a Three.js scene
  * Stores data in PCD format with x, y, z, intensity, time, tag, and line fields
  */
-const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
+const LidarSensor = ( {
+    position = [ 0, 2, 0 ],
+    showDebugRays = true,
+    config = {}
+} ) =>
 {
     const sensorRef = useRef();
     const pointsRef = useRef();
@@ -32,16 +44,8 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
 
     // ===== CONFIGURATION =====
 
-    // LiDAR specifications
-    const lidarConfig = useMemo( () => ( {
-        horizontalFOV: 360, // degrees
-        verticalFOV: 59, // degrees
-        numChannels: 40, // Livox Mid-360 has 40 beams
-        maxRange: 200, // meters
-        minRange: 0.1, // meters
-        scanRate: 0.1, // Adjust to control speed of scan (lower = faster)
-        pointsPerFrame: 10, // How many rays to cast per frame
-    } ), [] );
+    // LiDAR specifications with custom config merged with defaults
+    const lidarConfig = useMemo( () => createLidarConfig( config ), [ config ] );
 
     // ===== STATE MANAGEMENT =====
 
@@ -118,68 +122,17 @@ const LidarSensor = ( { position = [ 0, 2, 0 ], showDebugRays = true } ) =>
 
     // ===== EXPORT FUNCTIONALITY =====
 
-    // Export point cloud data in PCD format
-    function exportPointCloudPCD ()
-    {
-        // Generate PCD header
-        const pointCount = scanState.current.pointCloudData.length;
-        let pcdHeader = `VERSION .7
-FIELDS x y z intensity time tag line
-SIZE 4 4 4 4 4 1 1
-TYPE F F F F F U U
-COUNT 1 1 1 1 1 1 1
-WIDTH ${ pointCount }
-HEIGHT 1
-VIEWPOINT 0 0 0 1 0 0 0
-POINTS ${ pointCount }
-DATA ascii
-`;
-
-        // Generate PCD data
-        let pcdData = scanState.current.pointCloudData.map( point =>
-            `${ point.x.toFixed( 6 ) } ${ point.y.toFixed( 6 ) } ${ point.z.toFixed( 6 ) } ${ point.intensity.toFixed( 6 ) } ${ ( point.time / 1000 ).toFixed( 6 ) } ${ point.tag } ${ point.line }`
-        ).join( '\n' );
-
-        // Combine header and data
-        const pcdContent = pcdHeader + pcdData;
-
-        // Create downloadable file
-        const blob = new Blob( [ pcdContent ], { type: 'text/plain' } );
-        const url = URL.createObjectURL( blob );
-        const a = document.createElement( 'a' );
-        a.href = url;
-        a.download = 'lidar_point_cloud.pcd';
-        a.click();
-    }
-
-    // Export point cloud data in JSON format
-    function exportPointCloudJSON ()
-    {
-        const data = scanState.current.pointCloudData;
-        const blob = new Blob( [ JSON.stringify( data ) ], { type: 'application/json' } );
-        const url = URL.createObjectURL( blob );
-        const a = document.createElement( 'a' );
-        a.href = url;
-        a.download = 'lidar_point_cloud.json';
-        a.click();
-    }
-
-    // Make export functions available globally for the UI buttons
+    // Register export functions to window object
     useEffect( () =>
     {
-        // Keep original export function for backward compatibility
-        window.exportLidarPointCloud = exportPointCloudPCD;
+        // Function to get the current point cloud data
+        const getPointCloudData = () => scanState.current.pointCloudData;
 
-        // Add new export functions
-        window.exportLidarPointCloudPCD = exportPointCloudPCD;
-        window.exportLidarPointCloudJSON = exportPointCloudJSON;
+        // Register export functions and get cleanup function
+        const cleanup = registerExportFunctions( getPointCloudData );
 
-        return () =>
-        {
-            delete window.exportLidarPointCloud;
-            delete window.exportLidarPointCloudPCD;
-            delete window.exportLidarPointCloudJSON;
-        };
+        // Return cleanup function for component unmount
+        return cleanup;
     }, [] );
 
     // ===== RENDER =====
