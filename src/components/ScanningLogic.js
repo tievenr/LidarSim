@@ -2,9 +2,27 @@ import * as THREE from "three";
 import { createDebugRay } from "./VisualizationLogic";
 
 /**
- * Initialize vertical angles for LiDAR beams
+ * Initialize vertical angles for LiDAR beams with asymmetric distribution
+ * for Livox Mid-360 (-7° to 52°)
  */
-export function initializeVerticalAngles(numChannels, verticalFOV) {
+export function initializeVerticalAngles(
+  numChannels,
+  verticalFOV,
+  verticalFOVMin,
+  verticalFOVMax
+) {
+  // If min and max FOV are provided, use those for asymmetric distribution
+  if (verticalFOVMin !== undefined && verticalFOVMax !== undefined) {
+    return Array(numChannels)
+      .fill(0)
+      .map(
+        (_, i) =>
+          verticalFOVMin +
+          (i * (verticalFOVMax - verticalFOVMin)) / (numChannels - 1)
+      );
+  }
+
+  // Fallback to symmetric distribution around zero
   return Array(numChannels)
     .fill(0)
     .map((_, i) => -verticalFOV / 2 + (i * verticalFOV) / (numChannels - 1));
@@ -101,7 +119,7 @@ export function castSingleRay(
       intensity: intensity,
       time: timestamp,
       tag: Math.floor(Math.random() * 256), // Simulate tag value (0-255)
-      line: channelIndex, // Use channel index as line value (0-39)
+      line: channelIndex, // Use channel index as line value
     };
   }
 
@@ -109,7 +127,8 @@ export function castSingleRay(
 }
 
 /**
- * Cast multiple rays and collect points
+ * Cast multiple rays and collect points with improved density distribution
+ * to better simulate Livox Mid-360 scanning pattern
  */
 export function castRaysForFrame(
   sensorPosition,
@@ -124,13 +143,44 @@ export function castRaysForFrame(
 ) {
   const newPoints = [];
 
+  // Livox Mid-360 has a non-uniform scanning pattern
+  // We'll implement a more even density distribution
+
   for (let i = 0; i < lidarConfig.pointsPerFrame; i++) {
-    // Generate somewhat random scanning pattern
+    // Generate horizontal angle with density weighting
+    // Ensure more even coverage across the full 360°
     const horizontalOffset = ((Math.random() - 0.5) * Math.PI) / 36; // Small random offset
     const currentHAngle = scanState.horizontalAngle + horizontalOffset;
 
-    // Pick a random vertical channel
-    const channelIndex = Math.floor(Math.random() * lidarConfig.numChannels);
+    // Strategic vertical channel selection for more even distribution
+    // Use weighted sampling to compensate for the asymmetric vertical FOV
+    let channelIndex;
+
+    // For asymmetric FOV, use weighted sampling to ensure even density
+    // The larger upper FOV range (52°) vs lower (-7°) means we need more points in the upper range
+    const verticalRange =
+      lidarConfig.verticalFOVMax - lidarConfig.verticalFOVMin;
+    const upperWeight = Math.abs(lidarConfig.verticalFOVMax) / verticalRange;
+    const lowerWeight = Math.abs(lidarConfig.verticalFOVMin) / verticalRange;
+
+    // Weighted random selection based on FOV distribution
+    if (Math.random() < upperWeight) {
+      // Sample upper half with higher probability
+      channelIndex = Math.floor(
+        lidarConfig.numChannels / 2 +
+          Math.random() * (lidarConfig.numChannels / 2)
+      );
+    } else {
+      // Sample lower half with lower probability
+      channelIndex = Math.floor(Math.random() * (lidarConfig.numChannels / 2));
+    }
+
+    // Ensure channel index is within bounds
+    channelIndex = Math.min(
+      Math.max(channelIndex, 0),
+      lidarConfig.numChannels - 1
+    );
+
     const verticalAngle = scanState.verticalAngles[channelIndex];
 
     // Convert angles to radians

@@ -3,32 +3,33 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Sphere } from '@react-three/drei';
 import
-    {
-        initializeVerticalAngles,
-        updateScanAngle,
-        getSensorPosition,
-        collectIntersectableMeshes,
-        castRaysForFrame,
-        updatePointCloudData
-    } from './ScanningLogic';
+{
+    initializeVerticalAngles,
+    updateScanAngle,
+    getSensorPosition,
+    collectIntersectableMeshes,
+    castRaysForFrame,
+    updatePointCloudData
+} from './ScanningLogic';
 import
-    {
-        updatePointCloudVisualization,
-        clearDebugRays,
-        createPointCloudComponents
-    } from './VisualizationLogic';
+{
+    updatePointCloudVisualization,
+    clearDebugRays,
+    createPointCloudComponents
+} from './VisualizationLogic';
 import
-    {
-        registerExportFunctions
-    } from './ExportLogic';
+{
+    registerExportFunctions
+} from './ExportLogic';
 import
-    {
-        createLidarConfig
-    } from './LidarConfig';
+{
+    createLidarConfig
+} from './LidarConfig';
 
 /**
  * LidarSensor component simulates a LiDAR scanner in a Three.js scene
  * Stores data in PCD format with x, y, z, intensity, time, tag, and line fields
+ * Modified to support Livox Mid-360 specifications
  */
 const LidarSensor = ( {
     position = [ 0, 2, 0 ],
@@ -55,7 +56,12 @@ const LidarSensor = ( {
     // Current scanning state (changes over time to simulate scanning)
     const scanState = useRef( {
         horizontalAngle: 0,
-        verticalAngles: initializeVerticalAngles( lidarConfig.numChannels, lidarConfig.verticalFOV ),
+        verticalAngles: initializeVerticalAngles(
+            lidarConfig.numChannels,
+            lidarConfig.verticalFOV,
+            lidarConfig.verticalFOVMin,
+            lidarConfig.verticalFOVMax
+        ),
         pointCloudData: []
     } );
 
