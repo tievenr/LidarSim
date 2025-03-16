@@ -10,7 +10,7 @@ export const DEFAULT_LIDAR_CONFIG = {
   maxRange: 70, // meters (based on 80% reflectivity spec)
   minRange: 0.1, // meters (close proximity blind zone is 0.1m)
   scanRate: 2 * Math.PI * 10, // 2π * 10 Hz for 10 rotations per second
-  pointsPerFrame: 2000, // Approx. 20,000 points/rotation ÷ 60 frames/sec
+  pointsPerFrame: 500, // Approx. 20,000 points/rotation ÷ 60 frames/sec
   pointRate: 200000, // points/s - used for time calculations
 };
 
