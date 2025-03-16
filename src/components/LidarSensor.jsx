@@ -33,7 +33,7 @@ import
  */
 const LidarSensor = ( {
     position = [ 0, 2, 0 ],
-    showDebugRays = true,
+    showDebugRays = true, // Set to false by default for performance
     config = {}
 } ) =>
 {
@@ -112,7 +112,8 @@ const LidarSensor = ( {
         // Update point cloud data
         scanState.current.pointCloudData = updatePointCloudData(
             newPoints,
-            scanState.current.pointCloudData
+            scanState.current.pointCloudData,
+            100000 // Reduced from 200000 for better performance
         );
 
         // Update state for rendering

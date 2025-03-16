@@ -41,11 +41,15 @@ export function calculateRayDirection(hAngleRad, vAngleRad) {
 
 /**
  * Update the scan angle based on time
+ * Fixed by multiplying by scanRate instead of dividing
  */
 export function updateScanAngle(delta, scanState, scanRate) {
-  scanState.horizontalAngle += delta / scanRate;
+  // delta is in seconds, scanRate is in radians per second
+  scanState.horizontalAngle += delta * scanRate;
+
+  // Wrap around instead of reset for smoother animation
   if (scanState.horizontalAngle >= Math.PI * 2) {
-    scanState.horizontalAngle = 0;
+    scanState.horizontalAngle -= Math.PI * 2;
   }
 }
 
@@ -129,6 +133,7 @@ export function castSingleRay(
 /**
  * Cast multiple rays and collect points with improved density distribution
  * to better simulate Livox Mid-360 scanning pattern
+ * Completely rewritten to fix point distribution issues
  */
 export function castRaysForFrame(
   sensorPosition,
@@ -143,36 +148,41 @@ export function castRaysForFrame(
 ) {
   const newPoints = [];
 
-  // Livox Mid-360 has a non-uniform scanning pattern
-  // We'll implement a more even density distribution
-
+  // Improved ray distribution for more realistic scanning pattern
   for (let i = 0; i < lidarConfig.pointsPerFrame; i++) {
-    // Generate horizontal angle with density weighting
-    // Ensure more even coverage across the full 360°
-    const horizontalOffset = ((Math.random() - 0.5) * Math.PI) / 36; // Small random offset
-    const currentHAngle = scanState.horizontalAngle + horizontalOffset;
+    // Generate horizontal angle with more uniform distribution
+    // Divide the 360° into segments for more even coverage
+    const angleStep = (2 * Math.PI) / lidarConfig.pointsPerFrame;
+    const randomOffset = Math.random() * angleStep * 0.5; // Reduced randomness for more even distribution
+    const currentHAngle =
+      scanState.horizontalAngle + i * angleStep + randomOffset;
 
-    // Strategic vertical channel selection for more even distribution
-    // Use weighted sampling to compensate for the asymmetric vertical FOV
+    // Better weighting for vertical angle selection
+    // Calculate proper weighting based on the vertical FOV distribution
+    const verticalFOVRange = Math.abs(
+      lidarConfig.verticalFOVMax - lidarConfig.verticalFOVMin
+    );
+    const upperRange = Math.abs(lidarConfig.verticalFOVMax);
+    const lowerRange = Math.abs(lidarConfig.verticalFOVMin);
+
+    // Weight distribution based on the ratio of upper to lower FOV
+    const upperWeight = upperRange / verticalFOVRange;
+
+    // Select channel based on weighted probability
     let channelIndex;
-
-    // For asymmetric FOV, use weighted sampling to ensure even density
-    // The larger upper FOV range (52°) vs lower (-7°) means we need more points in the upper range
-    const verticalRange =
-      lidarConfig.verticalFOVMax - lidarConfig.verticalFOVMin;
-    const upperWeight = Math.abs(lidarConfig.verticalFOVMax) / verticalRange;
-    const lowerWeight = Math.abs(lidarConfig.verticalFOVMin) / verticalRange;
-
-    // Weighted random selection based on FOV distribution
     if (Math.random() < upperWeight) {
-      // Sample upper half with higher probability
-      channelIndex = Math.floor(
-        lidarConfig.numChannels / 2 +
-          Math.random() * (lidarConfig.numChannels / 2)
+      // Sample from upper FOV range (more points due to larger range)
+      const upperChannelCount = Math.round(
+        lidarConfig.numChannels * upperWeight
       );
+      const lowerBound = lidarConfig.numChannels - upperChannelCount;
+      channelIndex = lowerBound + Math.floor(Math.random() * upperChannelCount);
     } else {
-      // Sample lower half with lower probability
-      channelIndex = Math.floor(Math.random() * (lidarConfig.numChannels / 2));
+      // Sample from lower FOV range (fewer points due to smaller range)
+      const lowerChannelCount = Math.round(
+        lidarConfig.numChannels * (1 - upperWeight)
+      );
+      channelIndex = Math.floor(Math.random() * lowerChannelCount);
     }
 
     // Ensure channel index is within bounds
@@ -214,11 +224,12 @@ export function castRaysForFrame(
 
 /**
  * Update point cloud data with new points
+ * Lowered maxPoints default value for better performance
  */
 export function updatePointCloudData(
   newPoints,
   pointCloudData,
-  maxPoints = 200000
+  maxPoints = 100000 // Reduced from 200000 for better performance
 ) {
   // Add new points to our point cloud data
   let updatedData = [...pointCloudData, ...newPoints];

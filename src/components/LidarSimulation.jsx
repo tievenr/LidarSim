@@ -134,10 +134,16 @@ const UIControls = () =>
             background: 'rgba(0,0,0,0.7)',
             color: 'white',
             padding: '10px',
-            borderRadius: '5px'
+            borderRadius: '5px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '5px'
         }}>
-            <button onClick={() => window.exportLidarPointCloud?.()}>
-                Export Point Cloud
+            <button onClick={() => window.exportLidarPointCloudPCD?.()}>
+                Export as PCD
+            </button>
+            <button onClick={() => window.exportLidarPointCloudJSON?.()}>
+                Export as JSON
             </button>
         </div>
     );
@@ -148,7 +154,7 @@ const UIControls = () =>
  */
 const LidarSimulation = () =>
 {
-    const [ debugMode, setDebugMode ] = useState( true );
+    const [ debugMode, setDebugMode ] = useState( false ); // Default to false for better performance
 
     return (
         <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
@@ -159,6 +165,24 @@ const LidarSimulation = () =>
             </Canvas>
 
             <UIControls />
+            <div style={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                background: 'rgba(0,0,0,0.7)',
+                color: 'white',
+                padding: '10px',
+                borderRadius: '5px'
+            }}>
+                <label>
+                    <input
+                        type="checkbox"
+                        checked={debugMode}
+                        onChange={() => setDebugMode( !debugMode )}
+                    />
+                    Show Debug Rays
+                </label>
+            </div>
         </div>
     );
 };
