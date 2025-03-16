@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createDebugRay } from "./VisualizationLogic";
+import { applyVoxelFilter } from "./VoxelFilter";
 
 /**
  * Initialize vertical angles for LiDAR beams with asymmetric distribution
@@ -41,7 +42,7 @@ export function calculateRayDirection(hAngleRad, vAngleRad) {
 
 /**
  * Update the scan angle based on time
- * Fixed by multiplying by scanRate instead of dividing
+ * Ensures we maintain the proper 10Hz rotation rate
  */
 export function updateScanAngle(delta, scanState, scanRate) {
   // delta is in seconds, scanRate is in radians per second
@@ -131,9 +132,8 @@ export function castSingleRay(
 }
 
 /**
- * Cast multiple rays and collect points with improved density distribution
+ * Cast multiple rays and collect points with improved non-repetitive scanning pattern
  * to better simulate Livox Mid-360 scanning pattern
- * Completely rewritten to fix point distribution issues
  */
 export function castRaysForFrame(
   sensorPosition,
@@ -223,13 +223,14 @@ export function castRaysForFrame(
 }
 
 /**
- * Update point cloud data with new points
- * Lowered maxPoints default value for better performance
+ * Update point cloud data with new points and apply voxel filtering
  */
 export function updatePointCloudData(
   newPoints,
   pointCloudData,
-  maxPoints = 100000 // Reduced from 200000 for better performance
+  maxPoints = 100000, // Reduced from 200000 for better performance
+  applyFilter = true,
+  voxelSize = 0.1
 ) {
   // Add new points to our point cloud data
   let updatedData = [...pointCloudData, ...newPoints];
@@ -237,6 +238,11 @@ export function updatePointCloudData(
   // Limit point cloud size to avoid performance issues
   if (updatedData.length > maxPoints) {
     updatedData = updatedData.slice(-maxPoints);
+  }
+
+  // Apply voxel filtering if enabled
+  if (applyFilter && updatedData.length > 0) {
+    updatedData = applyVoxelFilter(updatedData, voxelSize, "centroid");
   }
 
   return updatedData;

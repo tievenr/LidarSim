@@ -142,13 +142,10 @@ const UIControls = () =>
             <button onClick={() => window.exportLidarPointCloudPCD?.()}>
                 Export as PCD
             </button>
-            <button onClick={() => window.exportLidarPointCloudJSON?.()}>
-                Export as JSON
-            </button>
+        
         </div>
     );
 };
-
 /**
  * Main LidarSimulation component
  */

@@ -35,17 +35,7 @@ DATA ascii
   downloadFile(pcdContent, "lidar_point_cloud.pcd", "text/plain");
 }
 
-/**
- * Export point cloud data in JSON format
- */
-export function exportPointCloudJSON(pointCloudData) {
-  const data = pointCloudData;
-  downloadFile(
-    JSON.stringify(data),
-    "lidar_point_cloud.json",
-    "application/json"
-  );
-}
+
 
 /**
  * Helper function to download file
@@ -70,13 +60,11 @@ export function registerExportFunctions(getPointCloudData) {
   // New export functions
   window.exportLidarPointCloudPCD = () =>
     exportPointCloudPCD(getPointCloudData());
-  window.exportLidarPointCloudJSON = () =>
-    exportPointCloudJSON(getPointCloudData());
 
   // Return cleanup function
   return () => {
     delete window.exportLidarPointCloud;
     delete window.exportLidarPointCloudPCD;
-    delete window.exportLidarPointCloudJSON;
+
   };
 }
