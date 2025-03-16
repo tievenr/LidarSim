@@ -14,21 +14,16 @@ import
     {
         clearDebugRays,
     } from './VisualizationLogic';
-import
-    {
-        registerExportFunctions
-    } from './ExportLogic';
-import
-    {
-        createLidarConfig
-    } from './LidarConfig';
+import { LidarFrameManager } from './LidarFrameExport';
+import { createLidarConfig } from './LidarConfig';
 
-// Maximum number of points to store in the circular buffer
-const MAX_POINTS = 200000;
+// Maximum number of points to store in the circular buffer for visualization
+const MAX_POINTS = 50000; // Reduced for better performance
 
 /**
- * LidarSensor component with optimized point cloud handling using circular buffer
- * Uses typed arrays and fixed memory allocation to prevent memory growth
+ * LidarSensor component with frame-based point cloud capture
+ * Uses typed arrays and fixed memory allocation for visualization
+ * Captures and exports frames as individual PCD files in a ZIP
  */
 const LidarSensor = ( {
     position = [ 0, 2, 0 ],
@@ -42,18 +37,21 @@ const LidarSensor = ( {
     const rayLines = useRef( [] );
     const startTime = useRef( Date.now() );
 
+    // Frame manager for capturing and exporting frames
+    const frameManager = useRef( null );
+
+    // UI state
+    const [ isCapturing, setIsCapturing ] = useState( false );
+    const [ frameStats, setFrameStats ] = useState( { frameCount: 0 } );
+
     // ===== CONFIGURATION =====
     const lidarConfig = useMemo( () => createLidarConfig( config ), [ config ] );
 
-    // ===== CIRCULAR BUFFER STATE =====
+    // ===== CIRCULAR BUFFER STATE FOR VISUALIZATION =====
     // We'll use a ref to store our circular buffer state to avoid re-renders
     const circularBuffer = useRef( {
-        // Point cloud data as typed arrays for x, y, z, intensity, time, tag, line
+        // Point cloud data as typed arrays for x, y, z, intensity
         positions: new Float32Array( MAX_POINTS * 3 ), // x, y, z
-        intensities: new Float32Array( MAX_POINTS ),   // intensity
-        times: new Float32Array( MAX_POINTS ),         // time
-        tags: new Uint8Array( MAX_POINTS ),            // tag
-        lines: new Uint8Array( MAX_POINTS ),           // line
         colors: new Float32Array( MAX_POINTS * 3 ),    // rgb colors for visualization
 
         // Current write position in the circular buffer
@@ -114,10 +112,78 @@ const LidarSensor = ( {
         };
     }, [] );
 
-    // ===== BUFFER MANAGEMENT FUNCTIONS =====
+    // Initialize the frame manager on component mount
+    useEffect( () =>
+    {
+        // Create frame manager with the LiDAR frame rate (derived from scan rate)
+        // For 10Hz rotation rate, we want 10 frames per second
+        const frameRate = lidarConfig.scanRate / ( 2 * Math.PI );
+        frameManager.current = new LidarFrameManager( frameRate );
 
+        // Expose frame manager to window for debugging
+        window.lidarFrameManager = frameManager.current;
+
+        // Cleanup on unmount
+        return () =>
+        {
+            delete window.lidarFrameManager;
+        };
+    }, [ lidarConfig.scanRate ] );
+
+    // ===== FRAME CAPTURE CONTROLS =====
+    useEffect( () =>
+    {
+        // Register export functions to window for UI access
+        window.startLidarCapture = () =>
+        {
+            if ( frameManager.current )
+            {
+                frameManager.current.startCapture();
+                setIsCapturing( true );
+            }
+        };
+
+        window.stopLidarCapture = () =>
+        {
+            if ( frameManager.current )
+            {
+                frameManager.current.stopCapture();
+                setIsCapturing( false );
+                // Update stats
+                setFrameStats( frameManager.current.getFrameStatistics() );
+            }
+        };
+
+        window.exportLidarFrames = async () =>
+        {
+            if ( frameManager.current )
+            {
+                await frameManager.current.exportFramesAsZip();
+            }
+        };
+
+        window.clearLidarFrames = () =>
+        {
+            if ( frameManager.current )
+            {
+                frameManager.current.clearFrames();
+                setFrameStats( { frameCount: 0 } );
+            }
+        };
+
+        // Cleanup on unmount
+        return () =>
+        {
+            delete window.startLidarCapture;
+            delete window.stopLidarCapture;
+            delete window.exportLidarFrames;
+            delete window.clearLidarFrames;
+        };
+    }, [] );
+
+    // ===== BUFFER MANAGEMENT FUNCTIONS =====
     /**
-     * Add new points to the circular buffer
+     * Add new points to the circular buffer for visualization
      * @param {Array} newPoints - Array of point objects from ray casting
      */
     const addPointsToCircularBuffer = ( newPoints ) =>
@@ -138,18 +204,10 @@ const LidarSensor = ( {
             buffer.positions[ idx * 3 + 1 ] = point.y;
             buffer.positions[ idx * 3 + 2 ] = point.z;
 
-            // Store intensity
-            buffer.intensities[ idx ] = point.intensity;
-
             // Store color (grayscale based on intensity)
             buffer.colors[ idx * 3 ] = point.intensity;
             buffer.colors[ idx * 3 + 1 ] = point.intensity;
             buffer.colors[ idx * 3 + 2 ] = point.intensity;
-
-            // Store metadata
-            buffer.times[ idx ] = point.time;
-            buffer.tags[ idx ] = point.tag;
-            buffer.lines[ idx ] = point.line;
 
             // Increment write index and wrap around if needed
             buffer.writeIndex = ( buffer.writeIndex + 1 ) % MAX_POINTS;
@@ -186,38 +244,6 @@ const LidarSensor = ( {
         pointCloudGeometry.setDrawRange( 0, circularBuffer.current.pointCount );
     };
 
-    /**
-     * Convert the circular buffer to an array of point objects for export
-     * @returns {Array} Array of point objects in the format expected by export functions
-     */
-    const getPointCloudDataForExport = () =>
-    {
-        const buffer = circularBuffer.current;
-        const points = [];
-
-        // Handle the case where buffer has wrapped around
-        const startIdx = buffer.hasWrapped ? buffer.writeIndex : 0;
-        const numPoints = buffer.pointCount;
-
-        for ( let i = 0; i < numPoints; i++ )
-        {
-            // Calculate index with wrap-around
-            const idx = ( startIdx + i ) % MAX_POINTS;
-
-            points.push( {
-                x: buffer.positions[ idx * 3 ],
-                y: buffer.positions[ idx * 3 + 1 ],
-                z: buffer.positions[ idx * 3 + 2 ],
-                intensity: buffer.intensities[ idx ],
-                time: buffer.times[ idx ],
-                tag: buffer.tags[ idx ],
-                line: buffer.lines[ idx ]
-            } );
-        }
-
-        return points;
-    };
-
     // ===== CORE SCANNING LOGIC =====
     useFrame( ( state, delta ) =>
     {
@@ -252,29 +278,22 @@ const LidarSensor = ( {
             currentTime
         );
 
-        // Add new points to our circular buffer
+        // Add new points to visualization buffer (limited set for display)
         addPointsToCircularBuffer( newPoints );
+
+        // Add points to frame manager if we're capturing
+        if ( isCapturing && frameManager.current )
+        {
+            frameManager.current.addPointsToFrame( newPoints );
+        }
     } );
-
-    // ===== EXPORT FUNCTIONALITY =====
-    useEffect( () =>
-    {
-        // Function to get the current point cloud data for export
-        const getPointCloudData = getPointCloudDataForExport;
-
-        // Register export functions and get cleanup function
-        const cleanup = registerExportFunctions( getPointCloudData );
-
-        // Return cleanup function for component unmount
-        return cleanup;
-    }, [] );
 
     // ===== RENDER =====
     return (
         <>
             {/* LiDAR sensor representation */}
             <Sphere ref={sensorRef} position={position} args={[ 0.2, 16, 16 ]}>
-                <meshStandardMaterial color="red" />
+                <meshStandardMaterial color={isCapturing ? "green" : "red"} />
             </Sphere>
 
             {/* Point cloud visualization */}
