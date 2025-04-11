@@ -9,7 +9,7 @@ export const DEFAULT_LIDAR_CONFIG = {
   numChannels: 40, // Livox Mid-360 has multiple beams
   maxRange: 70, // meters (based on 80% reflectivity spec)
   minRange: 0.1, // meters (close proximity blind zone is 0.1m)
-  scanRate: 2 * Math.PI * 10, // 2π * 10 Hz for 10 rotations per second
+  scanRate: 0.1, //2 * Math.PI * 10, // 2π * 10 Hz for 10 rotations per second
   pointsPerFrame: 500, // Approx. 20,000 points/rotation ÷ 60 frames/sec
   pointRate: 200000, // points/s - used for time calculations
 };
