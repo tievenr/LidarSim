@@ -41,43 +41,44 @@ export function calculateRayDirection(hAngleRad, vAngleRad) {
 }
 
 /**
- * Update the scan angle based on time
- * Ensures we maintain the proper 10Hz rotation rate
+ * Update the scan angle and phase based on time
+ * Ensures we maintain the proper rotation rate and pattern variation
  */
 export function updateScanAngle(delta, scanState, scanRate) {
-  // delta is in seconds, scanRate is in radians per second
+  // Update base rotation
   scanState.horizontalAngle += delta * scanRate;
-
-  // Wrap around instead of reset for smoother animation
   if (scanState.horizontalAngle >= Math.PI * 2) {
     scanState.horizontalAngle -= Math.PI * 2;
   }
+  
+  // Update phase for pattern variation
+  scanState.scanPhase += delta * 0.5;
+  if (scanState.scanPhase > 1) {
+    scanState.scanPhase = 0;
+  }
+  
+  // Increment frame counter
+  scanState.frameCount++;
 }
 
 /**
- * Get current sensor position from the 3D world
+ * Get the sensor position in world space
  */
 export function getSensorPosition(sensorRef) {
-  return new THREE.Vector3().setFromMatrixPosition(
-    sensorRef.current.matrixWorld
-  );
+  return sensorRef.current.position.clone();
 }
 
 /**
- * Collect all meshes in the scene that can be intersected by the LiDAR
+ * Collect all meshes in the scene that can be intersected
  */
 export function collectIntersectableMeshes(scene, sensorRef) {
-  const meshes = [];
-  scene.traverse((object) => {
-    if (object.isMesh && object !== sensorRef.current) {
-      meshes.push(object);
-    }
+  return scene.children.filter(child => {
+    return child.type === "Mesh" && child !== sensorRef.current;
   });
-  return meshes;
 }
 
 /**
- * Cast a single ray and return point data if hit
+ * Cast a single ray and return intersection point if found
  */
 export function castSingleRay(
   origin,
@@ -91,40 +92,29 @@ export function castSingleRay(
   rayLines,
   showDebugRays
 ) {
-  // Set raycaster origin and direction
   raycaster.set(origin, direction);
+  const intersects = raycaster.intersectObjects(meshesToIntersect, true);
 
-  // Find intersections
-  const intersects = raycaster.intersectObjects(meshesToIntersect, false);
-
-  // If we hit something within range
-  if (
-    intersects.length > 0 &&
-    intersects[0].distance >= lidarConfig.minRange &&
-    intersects[0].distance <= lidarConfig.maxRange
-  ) {
-    const hitPoint = intersects[0].point;
-    const distance = intersects[0].distance;
-
-    // Calculate intensity based on distance (0-1 range)
-    const normalizedDistance = Math.min(distance / lidarConfig.maxRange, 1);
-    const intensity = 1 - normalizedDistance;
-
-    // Create debug ray visualization if enabled
+  if (intersects.length > 0) {
+    const point = intersects[0].point;
+    
+    // Create debug visualization if enabled
     if (showDebugRays) {
-      const line = createDebugRay(origin, hitPoint, intensity, scene);
-      rayLines.push(line);
+      const rayLine = createDebugRay(
+        origin,
+        point,
+        channelIndex / lidarConfig.numChannels,
+        scene
+      );
+      rayLines.push(rayLine);
     }
 
-    // Return point data in PCD format
     return {
-      x: hitPoint.x,
-      y: hitPoint.y,
-      z: hitPoint.z,
-      intensity: intensity,
-      time: timestamp,
-      tag: Math.floor(Math.random() * 256), // Simulate tag value (0-255)
-      line: channelIndex, // Use channel index as line value
+      x: point.x,
+      y: point.y,
+      z: point.z,
+      intensity: channelIndex / lidarConfig.numChannels,
+      timestamp: timestamp
     };
   }
 
@@ -132,8 +122,7 @@ export function castSingleRay(
 }
 
 /**
- * Cast multiple rays and collect points with improved non-repetitive scanning pattern
- * to better simulate Livox Mid-360 scanning pattern
+ * Cast rays for a complete frame using improved pattern distribution
  */
 export function castRaysForFrame(
   sensorPosition,
@@ -147,103 +136,86 @@ export function castRaysForFrame(
   currentTime
 ) {
   const newPoints = [];
-
-  // Improved ray distribution for more realistic scanning pattern
+  
+  // Using the golden angle (137.5°) for optimal point distribution
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  
   for (let i = 0; i < lidarConfig.pointsPerFrame; i++) {
-    // Generate horizontal angle with more uniform distribution
-    // Divide the 360° into segments for more even coverage
-    const angleStep = (2 * Math.PI) / lidarConfig.pointsPerFrame;
-    const randomOffset = Math.random() * angleStep * 0.5; // Reduced randomness for more even distribution
-    const currentHAngle =
-      scanState.horizontalAngle + i * angleStep + randomOffset;
-
-    // Better weighting for vertical angle selection
-    // Calculate proper weighting based on the vertical FOV distribution
-    const verticalFOVRange = Math.abs(
-      lidarConfig.verticalFOVMax - lidarConfig.verticalFOVMin
-    );
-    const upperRange = Math.abs(lidarConfig.verticalFOVMax);
-    const lowerRange = Math.abs(lidarConfig.verticalFOVMin);
-
-    // Weight distribution based on the ratio of upper to lower FOV
-    const upperWeight = upperRange / verticalFOVRange;
-
-    // Select channel based on weighted probability
-    let channelIndex;
-    if (Math.random() < upperWeight) {
-      // Sample from upper FOV range (more points due to larger range)
-      const upperChannelCount = Math.round(
-        lidarConfig.numChannels * upperWeight
-      );
-      const lowerBound = lidarConfig.numChannels - upperChannelCount;
-      channelIndex = lowerBound + Math.floor(Math.random() * upperChannelCount);
-    } else {
-      // Sample from lower FOV range (fewer points due to smaller range)
-      const lowerChannelCount = Math.round(
-        lidarConfig.numChannels * (1 - upperWeight)
-      );
-      channelIndex = Math.floor(Math.random() * lowerChannelCount);
-    }
-
-    // Ensure channel index is within bounds
-    channelIndex = Math.min(
-      Math.max(channelIndex, 0),
-      lidarConfig.numChannels - 1
-    );
-
-    const verticalAngle = scanState.verticalAngles[channelIndex];
-
-    // Convert angles to radians
-    const hAngleRad = currentHAngle;
+    // Calculate angle based on golden spiral pattern
+    // Combine frame count, pattern offset and current base angle
+    const baseIndex = scanState.frameCount * lidarConfig.pointsPerFrame + i + scanState.patternOffset;
+    const normalizedIndex = ((baseIndex % 1000) / 1000);
+    
+    // Calculate horizontal angle using golden ratio for spiral pattern
+    const hAngleRad = (scanState.horizontalAngle + normalizedIndex * Math.PI * 2 + 
+                    goldenAngle * baseIndex) % (Math.PI * 2);
+    
+    // Calculate vertical angle using blue noise distribution
+    // We'll use a simple hash function to get pseudo-random but consistent distribution
+    const hash = Math.sin(baseIndex * 0.1) * 10000 + Math.cos(baseIndex * 0.7) * 10000;
+    const verticalPos = Math.abs((hash % 1000) / 1000);
+    
+    // Apply non-linear mapping for better coverage of important areas
+    const verticalPosAdjusted = Math.pow(verticalPos, 0.8);
+    
+    // Map to vertical FOV range with emphasis on the central region
+    const verticalRange = lidarConfig.verticalFOVMax - lidarConfig.verticalFOVMin;
+    const verticalAngle = lidarConfig.verticalFOVMin + verticalPosAdjusted * verticalRange;
     const vAngleRad = THREE.MathUtils.degToRad(verticalAngle);
-
+    
     // Get direction vector
     const direction = calculateRayDirection(hAngleRad, vAngleRad);
-
+    
+    // Calculate channel index based on vertical angle
+    const channelIndex = Math.floor(
+      ((verticalAngle - lidarConfig.verticalFOVMin) / verticalRange) * 
+      (lidarConfig.numChannels - 1)
+    );
+    
     // Cast ray and process results
     const point = castSingleRay(
       sensorPosition,
       direction,
       meshesToIntersect,
       channelIndex,
-      currentTime * 1000, // Convert to microseconds
+      currentTime * 1000,
       raycaster,
       lidarConfig,
       scene,
       rayLines,
       showDebugRays
     );
-
+    
     if (point) {
       newPoints.push(point);
     }
   }
-
+  
   return newPoints;
 }
 
 /**
- * Update point cloud data with new points and apply voxel filtering
+ * Update point cloud data with new points
  */
 export function updatePointCloudData(
   newPoints,
   pointCloudData,
-  maxPoints = 100000, // Reduced from 200000 for better performance
+  maxPoints = 100000,
   applyFilter = true,
   voxelSize = 0.1
 ) {
-  // Add new points to our point cloud data
-  let updatedData = [...pointCloudData, ...newPoints];
-
-  // Limit point cloud size to avoid performance issues
-  if (updatedData.length > maxPoints) {
-    updatedData = updatedData.slice(-maxPoints);
-  }
+  // Add new points
+  pointCloudData.push(...newPoints);
 
   // Apply voxel filtering if enabled
-  if (applyFilter && updatedData.length > 0) {
-    updatedData = applyVoxelFilter(updatedData, voxelSize, "centroid");
+  if (applyFilter) {
+    pointCloudData = applyVoxelFilter(pointCloudData, voxelSize);
   }
 
-  return updatedData;
+  // Limit total number of points
+  if (pointCloudData.length > maxPoints) {
+    pointCloudData = pointCloudData.slice(-maxPoints);
+  }
+
+  return pointCloudData;
 }

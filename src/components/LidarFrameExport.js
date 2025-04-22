@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import JSZip from "jszip";
 
 /**
@@ -8,22 +9,13 @@ export class LidarFrameManager {
   constructor(frameRate = 10) {
     // Frame rate in Hz (10Hz = frame every 100ms)
     this.frameRate = frameRate;
-    this.frameInterval = 1000 / frameRate; // Convert to milliseconds
-
-    // Storage for all frames
     this.frames = [];
-
-    // Current frame being collected
+    this.isCapturing = false;
+    this.startTime = null;
     this.currentFrame = {
       points: [],
-      startTime: Date.now(),
-      frameNumber: 1,
+      timestamp: 0
     };
-
-    // Settings
-    this.maxFrames = 300; // Limit number of frames (30 seconds at 10Hz)
-    this.isCapturing = false;
-    this.frameStartTime = Date.now();
   }
 
   /**
@@ -31,13 +23,12 @@ export class LidarFrameManager {
    */
   startCapture() {
     this.isCapturing = true;
-    this.frameStartTime = Date.now();
+    this.startTime = Date.now();
+    this.frames = [];
     this.currentFrame = {
       points: [],
-      startTime: this.frameStartTime,
-      frameNumber: this.frames.length + 1,
+      timestamp: 0
     };
-    console.log("Frame capture started");
   }
 
   /**
@@ -45,61 +36,35 @@ export class LidarFrameManager {
    */
   stopCapture() {
     this.isCapturing = false;
-    // Save the last frame if it has any points
+    // Add the last frame if it has points
     if (this.currentFrame.points.length > 0) {
-      this.saveCurrentFrame();
+      this.frames.push(this.currentFrame);
     }
-    console.log(`Frame capture stopped. Total frames: ${this.frames.length}`);
   }
 
   /**
    * Add new points to the current frame
-   * @param {Array} newPoints - Array of point objects from ray casting
+   * @param {Array} points - Array of point objects from ray casting
    */
-  addPointsToFrame(newPoints) {
-    if (!this.isCapturing || !newPoints || newPoints.length === 0) return;
+  addPointsToFrame(points) {
+    if (!this.isCapturing) return;
 
-    // Add points to current frame
-    this.currentFrame.points.push(...newPoints);
+    const currentTime = Date.now() - this.startTime;
+    const frameDuration = 1000 / this.frameRate;
 
-    // Check if frame is complete based on time
-    const currentTime = Date.now();
-    const frameElapsed = currentTime - this.frameStartTime;
-
-    if (frameElapsed >= this.frameInterval) {
-      this.saveCurrentFrame();
-
-      // Start a new frame
-      this.frameStartTime = currentTime;
+    // If we've exceeded the frame duration, save the current frame and start a new one
+    if (currentTime - this.currentFrame.timestamp >= frameDuration) {
+      if (this.currentFrame.points.length > 0) {
+        this.frames.push(this.currentFrame);
+      }
       this.currentFrame = {
         points: [],
-        startTime: currentTime,
-        frameNumber: this.frames.length + 1,
+        timestamp: currentTime
       };
     }
-  }
 
-  /**
-   * Save the current frame to our frames array
-   */
-  saveCurrentFrame() {
-    // Only save frames with points
-    if (this.currentFrame.points.length > 0) {
-      // Add frame to our collection
-      this.frames.push({
-        ...this.currentFrame,
-        endTime: Date.now(),
-      });
-
-      // Enforce maximum frame limit to prevent memory issues
-      if (this.frames.length > this.maxFrames) {
-        this.frames.shift(); // Remove oldest frame
-      }
-
-      console.log(
-        `Frame ${this.currentFrame.frameNumber} saved with ${this.currentFrame.points.length} points`
-      );
-    }
+    // Add points to current frame
+    this.currentFrame.points.push(...points);
   }
 
   /**
@@ -107,7 +72,10 @@ export class LidarFrameManager {
    */
   clearFrames() {
     this.frames = [];
-    console.log("All frames cleared");
+    this.currentFrame = {
+      points: [],
+      timestamp: 0
+    };
   }
 
   /**
@@ -176,51 +144,49 @@ DATA ascii
       return;
     }
 
-    try {
-      // Create new ZIP file
-      const zip = new JSZip();
+    const zip = new JSZip();
+    
+    // Create a folder for the frames
+    const framesFolder = zip.folder("frames");
+    
+    // Export each frame as a PCD file
+    this.frames.forEach((frame, index) => {
+      const pcdContent = this.generatePCD(frame.points);
+      framesFolder.file(`frame_${index.toString().padStart(6, '0')}.pcd`, pcdContent);
+    });
 
-      // Add each frame as a PCD file
-      this.frames.forEach((frame) => {
-        const filename = this.generateFrameFilename(frame);
-        const pcdContent = this.generatePCDContent(frame);
-        zip.file(filename, pcdContent);
-      });
-
-      // Generate the ZIP file
-      const content = await zip.generateAsync({
-        type: "blob",
-        compression: "DEFLATE",
-        compressionOptions: { level: 6 },
-      });
-
-      // Create a timestamp for the ZIP filename
-      const timestamp = this.formatTimestamp(Date.now());
-      const zipFilename = `lidar_frames_${timestamp}.zip`;
-
-      // Trigger download
-      this.downloadBlob(content, zipFilename);
-
-      console.log(`ZIP export complete with ${this.frames.length} frames`);
-    } catch (error) {
-      console.error("Error exporting frames:", error);
-    }
+    // Generate and download the zip file
+    const content = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(content);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `lidar_frames_${new Date().toISOString()}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
-  /**
-   * Helper function to download a Blob as a file
-   * @param {Blob} blob - The Blob to download
-   * @param {String} filename - The filename to use
-   */
-  downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url); // Clean up
+  generatePCD(points) {
+    // PCD header
+    let header = `# .PCD v0.7 - Point Cloud Data file format\n`;
+    header += `VERSION 0.7\n`;
+    header += `FIELDS x y z intensity\n`;
+    header += `SIZE 4 4 4 4\n`;
+    header += `TYPE F F F F\n`;
+    header += `COUNT 1 1 1 1\n`;
+    header += `WIDTH ${points.length}\n`;
+    header += `HEIGHT 1\n`;
+    header += `VIEWPOINT 0 0 0 1 0 0 0\n`;
+    header += `POINTS ${points.length}\n`;
+    header += `DATA ascii\n`;
+
+    // PCD data
+    const data = points.map(point => 
+      `${point.x} ${point.y} ${point.z} ${point.intensity}`
+    ).join('\n');
+
+    return header + data;
   }
 
   /**
@@ -228,27 +194,12 @@ DATA ascii
    * @returns {Object} - Statistics about frames
    */
   getFrameStatistics() {
-    if (this.frames.length === 0) {
-      return { frameCount: 0, totalPoints: 0, avgPointsPerFrame: 0 };
-    }
-
-    const totalPoints = this.frames.reduce(
-      (sum, frame) => sum + frame.points.length,
-      0
-    );
-
     return {
       frameCount: this.frames.length,
-      totalPoints: totalPoints,
-      avgPointsPerFrame: Math.round(totalPoints / this.frames.length),
-      firstFrameTime: new Date(this.frames[0].startTime).toISOString(),
-      lastFrameTime: new Date(
-        this.frames[this.frames.length - 1].endTime
-      ).toISOString(),
-      totalDuration:
-        (this.frames[this.frames.length - 1].endTime -
-          this.frames[0].startTime) /
-        1000,
+      totalPoints: this.frames.reduce((sum, frame) => sum + frame.points.length, 0),
+      averagePointsPerFrame: this.frames.length > 0 
+        ? this.frames.reduce((sum, frame) => sum + frame.points.length, 0) / this.frames.length 
+        : 0
     };
   }
 }
