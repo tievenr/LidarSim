@@ -42,7 +42,7 @@ export class LidarFrameManager {
    */
   stopCapture() {
     this.isCapturing = false;
-    // Add the last frame if it has points
+    // Save the last frame if it has points
     if (this.currentFrame.points.length > 0) {
       this.frames.push(this.currentFrame);
     }
@@ -74,7 +74,7 @@ export class LidarFrameManager {
       };
 
       // Debug log
-      console.log(`New frame started: ${this.frames.length}, Interval: ${timeSinceLastFrame}ms`);
+      console.log(`New frame started: ${this.frames.length}, Interval: ${timeSinceLastFrame}ms, Points: ${points.length}`);
     }
 
     // Add points to current frame
