@@ -9,12 +9,15 @@ export class LidarFrameManager {
   constructor(frameRate = 10) {
     // Frame rate in Hz (10Hz = frame every 100ms)
     this.frameRate = frameRate;
+    this.frameInterval = 1000 / frameRate; // Convert to milliseconds
     this.frames = [];
     this.isCapturing = false;
-    this.startTime = null;
+    this.frameStartTime = null;
+    this.lastFrameTime = null;
     this.currentFrame = {
       points: [],
-      timestamp: 0
+      startTime: 0,
+      frameNumber: 0
     };
   }
 
@@ -23,11 +26,14 @@ export class LidarFrameManager {
    */
   startCapture() {
     this.isCapturing = true;
-    this.startTime = Date.now();
+    const now = Date.now();
+    this.frameStartTime = now;
+    this.lastFrameTime = now;
     this.frames = [];
     this.currentFrame = {
       points: [],
-      timestamp: 0
+      startTime: now,
+      frameNumber: 0
     };
   }
 
@@ -47,20 +53,28 @@ export class LidarFrameManager {
    * @param {Array} points - Array of point objects from ray casting
    */
   addPointsToFrame(points) {
-    if (!this.isCapturing) return;
+    if (!this.isCapturing || !points || points.length === 0) return;
 
-    const currentTime = Date.now() - this.startTime;
-    const frameDuration = 1000 / this.frameRate;
+    const currentTime = Date.now();
+    const timeSinceLastFrame = currentTime - this.lastFrameTime;
 
-    // If we've exceeded the frame duration, save the current frame and start a new one
-    if (currentTime - this.currentFrame.timestamp >= frameDuration) {
+    // If we've exceeded the frame interval, start a new frame
+    if (timeSinceLastFrame >= this.frameInterval) {
+      // Save current frame if it has points
       if (this.currentFrame.points.length > 0) {
         this.frames.push(this.currentFrame);
       }
+
+      // Start a new frame
+      this.lastFrameTime = currentTime;
       this.currentFrame = {
         points: [],
-        timestamp: currentTime
+        startTime: currentTime,
+        frameNumber: this.frames.length
       };
+
+      // Debug log
+      console.log(`New frame started: ${this.frames.length}, Interval: ${timeSinceLastFrame}ms`);
     }
 
     // Add points to current frame
@@ -74,8 +88,10 @@ export class LidarFrameManager {
     this.frames = [];
     this.currentFrame = {
       points: [],
-      timestamp: 0
+      startTime: 0,
+      frameNumber: 0
     };
+    this.lastFrameTime = null;
   }
 
   /**
