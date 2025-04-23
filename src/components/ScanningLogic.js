@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { createDebugRay } from "./VisualizationLogic";
 import { applyVoxelFilter } from "./VoxelFilter";
+import { IntensityCalculator } from "./IntensityCalculator";
 
 /**
  * Initialize vertical angles for LiDAR beams with asymmetric distribution
@@ -109,11 +110,21 @@ export function castSingleRay(
       rayLines.push(rayLine);
     }
 
+    // Calculate intensity using the IntensityCalculator
+    const intensityCalculator = new IntensityCalculator(lidarConfig);
+    const intensity = intensityCalculator.calculateIntensity(
+      origin,
+      point,
+      direction,
+      intersects[0],
+      channelIndex
+    );
+
     return {
       x: point.x,
       y: point.y,
       z: point.z,
-      intensity: channelIndex / lidarConfig.numChannels,
+      intensity: intensity,
       timestamp: timestamp
     };
   }
