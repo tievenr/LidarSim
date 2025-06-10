@@ -47,7 +47,7 @@ The simulation uses **Three.js raycasting** to simulate laser beams hitting obje
 - **Performance Optimization**: Implementing Web Workers for parallel ray casting 
 - **Higher Fidelity**: Better approximation of actual Livox MID-360 scan patterns
 - **Memory Improvements**: Reducing garbage collection during intensive scanning
--**Fixing Motion Blure for Moving Lidar**: Erm it doesn't work as of now.
+- **Fixing Motion Blure for Moving Lidar**: Erm it doesn't work as of now
 
 ### **Future Plans**
 - **Multiple Sensor Support**: Add camera, radar, and ultrasonic sensors
