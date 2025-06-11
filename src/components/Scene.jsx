@@ -1,6 +1,6 @@
 import React from 'react';
 import { Environment } from './Environment';
-import LidarSensor from './LidarSensor';
+import LidarSensor from '../sensors/lidar/components/LidarSensor';
 
 /**
  * Scene component - Contains environment and LiDAR sensor

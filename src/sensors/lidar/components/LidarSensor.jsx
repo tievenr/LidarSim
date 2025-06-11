@@ -2,23 +2,25 @@ import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Sphere } from '@react-three/drei';
-import {
-    initializeVerticalAngles,
-    updateScanAngle,
-    getSensorPosition,
-    collectIntersectableMeshes,
-    castRaysForFrame,
-} from './ScanningLogic';
-import {
-    clearDebugRays,
-    visualizeScanPattern,
-    clearScanPattern
-} from './VisualizationLogic';
-import { LidarFrameManager } from './LidarFrameExport';
-import { createLidarConfig } from './LidarConfig';
+import
+    {
+        initializeVerticalAngles,
+        updateScanAngle,
+        getSensorPosition,
+        collectIntersectableMeshes,
+        castRaysForFrame,
+    } from '../logic/ScanningLogic';
+import
+    {
+        clearDebugRays,
+        visualizeScanPattern,
+        clearScanPattern
+    } from '../logic/VisualizationLogic';
+import { LidarFrameManager } from '../utils/ExportLogic';
+import { createLidarConfig } from '../config/LidarConfig';
 
-// Maximum number of points to store in the circular buffer for visualization
-const MAX_POINTS = 50000; // Reduced for better performance
+// Maximum number of points to store in the circular buffer for visualization, reduced for better performance.
+const MAX_POINTS = 50000;
 
 /**
  * LidarSensor component with frame-based point cloud capture
@@ -45,11 +47,11 @@ const LidarSensor = ({
     const [frameStats, setFrameStats] = useState({ frameCount: 0 });
     const [showPattern, setShowPattern] = useState(false);
 
-    // ===== CONFIGURATION =====
+    // Configuration
     const lidarConfig = useMemo(() => createLidarConfig(config), [config]);
 
-    // ===== CIRCULAR BUFFER STATE FOR VISUALIZATION =====
-    // We'll use a ref to store our circular buffer state to avoid re-renders
+    // Circular buffer state for visualization.
+    // We'll use a ref to store our circular buffer state to avoid re-renders.
     const circularBuffer = useRef({
         // Point cloud data as typed arrays for x, y, z, intensity
         positions: new Float32Array(MAX_POINTS * 3), // x, y, z
@@ -65,7 +67,7 @@ const LidarSensor = ({
         hasWrapped: false
     });
 
-    // ===== SCANNING STATE =====
+    // Scanning state
     // Initialize scan state as a ref
     const scanState = useRef({
         horizontalAngle: 0,
@@ -132,7 +134,7 @@ const LidarSensor = ({
         };
     }, [lidarConfig.scanRate]);
 
-    // ===== FRAME CAPTURE CONTROLS =====
+    // Frame capture controls
     useEffect(() => {
         // Register export functions to window for UI access
         window.startLidarCapture = () => {
@@ -173,65 +175,7 @@ const LidarSensor = ({
         };
     }, []);
 
-    // ===== BUFFER MANAGEMENT FUNCTIONS =====
-    /**
-     * Add new points to the circular buffer for visualization
-     * @param {Array} newPoints - Array of point objects from ray casting
-     */
-    const addPointsToCircularBuffer = (newPoints) => {
-        if (!newPoints || newPoints.length === 0) return;
-
-        const buffer = circularBuffer.current;
-
-        for (let i = 0; i < newPoints.length; i++) {
-            const point = newPoints[i];
-
-            // Calculate the actual index in our arrays
-            const idx = buffer.writeIndex;
-
-            // Store position (x, y, z)
-            buffer.positions[idx * 3] = point.x;
-            buffer.positions[idx * 3 + 1] = point.y;
-            buffer.positions[idx * 3 + 2] = point.z;
-
-            // Store color (grayscale based on intensity)
-            buffer.colors[idx * 3] = point.intensity;
-            buffer.colors[idx * 3 + 1] = point.intensity;
-            buffer.colors[idx * 3 + 2] = point.intensity;
-
-            // Increment write index and wrap around if needed
-            buffer.writeIndex = (buffer.writeIndex + 1) % MAX_POINTS;
-
-            // Update point count and wrapped flag
-            if (buffer.pointCount < MAX_POINTS) {
-                buffer.pointCount++;
-            } else {
-                buffer.hasWrapped = true;
-            }
-        }
-
-        // Mark buffer attributes for update
-        updateBufferAttributes();
-    };
-
-    /**
-     * Mark position and color attributes for update in Three.js
-     */
-    const updateBufferAttributes = () => {
-        if (!pointCloudGeometry) return;
-
-        // Mark only the portion of the buffer that contains valid data
-        const posAttr = pointCloudGeometry.attributes.position;
-        const colorAttr = pointCloudGeometry.attributes.color;
-
-        posAttr.needsUpdate = true;
-        colorAttr.needsUpdate = true;
-
-        // Set the draw range to only render the filled portion of the buffer
-        pointCloudGeometry.setDrawRange(0, circularBuffer.current.pointCount);
-    };
-
-    // ===== CORE SCANNING LOGIC =====
+    // Core scanning logic
     useFrame((state, delta) => {
         if (!sensorRef.current) return;
 
@@ -297,7 +241,65 @@ const LidarSensor = ({
         }
     });
 
-    // ===== RENDER =====
+    // ===== BUFFER MANAGEMENT FUNCTIONS =====
+    /**
+     * Add new points to the circular buffer for visualization
+     * @param {Array} newPoints - Array of point objects from ray casting
+     */
+    const addPointsToCircularBuffer = (newPoints) => {
+        if (!newPoints || newPoints.length === 0) return;
+
+        const buffer = circularBuffer.current;
+
+        for (let i = 0; i < newPoints.length; i++) {
+            const point = newPoints[i];
+
+            // Calculate the actual index in our arrays
+            const idx = buffer.writeIndex;
+
+            // Store position (x, y, z)
+            buffer.positions[idx * 3] = point.x;
+            buffer.positions[idx * 3 + 1] = point.y;
+            buffer.positions[idx * 3 + 2] = point.z;
+
+            // Store color (grayscale based on intensity)
+            buffer.colors[idx * 3] = point.intensity;
+            buffer.colors[idx * 3 + 1] = point.intensity;
+            buffer.colors[idx * 3 + 2] = point.intensity;
+
+            // Increment write index and wrap around if needed
+            buffer.writeIndex = (buffer.writeIndex + 1) % MAX_POINTS;
+
+            // Update point count and wrapped flag
+            if (buffer.pointCount < MAX_POINTS) {
+                buffer.pointCount++;
+            } else {
+                buffer.hasWrapped = true;
+            }
+        }
+
+        // Mark buffer attributes for update
+        updateBufferAttributes();
+    };
+
+    /**
+     * Mark position and color attributes for update in Three.js
+     */
+    const updateBufferAttributes = () => {
+        if (!pointCloudGeometry) return;
+
+        // Mark only the portion of the buffer that contains valid data
+        const posAttr = pointCloudGeometry.attributes.position;
+        const colorAttr = pointCloudGeometry.attributes.color;
+
+        posAttr.needsUpdate = true;
+        colorAttr.needsUpdate = true;
+
+        // Set the draw range to only render the filled portion of the buffer
+        pointCloudGeometry.setDrawRange(0, circularBuffer.current.pointCount);
+    };
+
+    // Render
     return (
         <>
             {/* LiDAR sensor representation */}
