@@ -1,7 +1,7 @@
 import * as THREE from "three";
-import { createDebugRay } from "./VisualizationLogic";
-import { applyVoxelFilter } from "./VoxelFilter";
-import { IntensityCalculator } from "./IntensityCalculator";
+import { createDebugRay } from "./VisualizationLogic"; // ✅ Same folder
+import { applyVoxelFilter } from "../utils/VoxelFilter"; // ← Fixed
+import { IntensityCalculator } from "../utils/IntensityCalculator";
 
 /**
  * Initialize vertical angles for LiDAR beams with asymmetric distribution
@@ -51,13 +51,13 @@ export function updateScanAngle(delta, scanState, scanRate) {
   if (scanState.horizontalAngle >= Math.PI * 2) {
     scanState.horizontalAngle -= Math.PI * 2;
   }
-  
+
   // Update phase for pattern variation
   scanState.scanPhase += delta * 0.5;
   if (scanState.scanPhase > 1) {
     scanState.scanPhase = 0;
   }
-  
+
   // Increment frame counter
   scanState.frameCount++;
 }
@@ -73,7 +73,7 @@ export function getSensorPosition(sensorRef) {
  * Collect all meshes in the scene that can be intersected
  */
 export function collectIntersectableMeshes(scene, sensorRef) {
-  return scene.children.filter(child => {
+  return scene.children.filter((child) => {
     return child.type === "Mesh" && child !== sensorRef.current;
   });
 }
@@ -98,7 +98,7 @@ export function castSingleRay(
 
   if (intersects.length > 0) {
     const point = intersects[0].point;
-    
+
     // Create debug visualization if enabled
     if (showDebugRays) {
       const rayLine = createDebugRay(
@@ -125,7 +125,7 @@ export function castSingleRay(
       y: point.y,
       z: point.z,
       intensity: intensity,
-      timestamp: timestamp
+      timestamp: timestamp,
     };
   }
 
@@ -147,42 +147,51 @@ export function castRaysForFrame(
   currentTime
 ) {
   const newPoints = [];
-  
+
   // Using the golden angle (137.5°) for optimal point distribution
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  
+
   for (let i = 0; i < lidarConfig.pointsPerFrame; i++) {
     // Calculate angle based on golden spiral pattern
     // Combine frame count, pattern offset and current base angle
-    const baseIndex = scanState.frameCount * lidarConfig.pointsPerFrame + i + scanState.patternOffset;
-    const normalizedIndex = ((baseIndex % 1000) / 1000);
-    
+    const baseIndex =
+      scanState.frameCount * lidarConfig.pointsPerFrame +
+      i +
+      scanState.patternOffset;
+    const normalizedIndex = (baseIndex % 1000) / 1000;
+
     // Calculate horizontal angle using golden ratio for spiral pattern
-    const hAngleRad = (scanState.horizontalAngle + normalizedIndex * Math.PI * 2 + 
-                    goldenAngle * baseIndex) % (Math.PI * 2);
-    
+    const hAngleRad =
+      (scanState.horizontalAngle +
+        normalizedIndex * Math.PI * 2 +
+        goldenAngle * baseIndex) %
+      (Math.PI * 2);
+
     // Calculate vertical angle using blue noise distribution
     // We'll use a simple hash function to get pseudo-random but consistent distribution
-    const hash = Math.sin(baseIndex * 0.1) * 10000 + Math.cos(baseIndex * 0.7) * 10000;
+    const hash =
+      Math.sin(baseIndex * 0.1) * 10000 + Math.cos(baseIndex * 0.7) * 10000;
     const verticalPos = Math.abs((hash % 1000) / 1000);
-    
+
     // Apply non-linear mapping for better coverage of important areas
     const verticalPosAdjusted = Math.pow(verticalPos, 0.8);
-    
+
     // Map to vertical FOV range with emphasis on the central region
-    const verticalRange = lidarConfig.verticalFOVMax - lidarConfig.verticalFOVMin;
-    const verticalAngle = lidarConfig.verticalFOVMin + verticalPosAdjusted * verticalRange;
+    const verticalRange =
+      lidarConfig.verticalFOVMax - lidarConfig.verticalFOVMin;
+    const verticalAngle =
+      lidarConfig.verticalFOVMin + verticalPosAdjusted * verticalRange;
     const vAngleRad = THREE.MathUtils.degToRad(verticalAngle);
-    
+
     // Get direction vector
     const direction = calculateRayDirection(hAngleRad, vAngleRad);
-    
+
     // Calculate channel index based on vertical angle
     const channelIndex = Math.floor(
-      ((verticalAngle - lidarConfig.verticalFOVMin) / verticalRange) * 
-      (lidarConfig.numChannels - 1)
+      ((verticalAngle - lidarConfig.verticalFOVMin) / verticalRange) *
+        (lidarConfig.numChannels - 1)
     );
-    
+
     // Cast ray and process results
     const point = castSingleRay(
       sensorPosition,
@@ -196,12 +205,12 @@ export function castRaysForFrame(
       rayLines,
       showDebugRays
     );
-    
+
     if (point) {
       newPoints.push(point);
     }
   }
-  
+
   return newPoints;
 }
 

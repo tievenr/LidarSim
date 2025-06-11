@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { RangeCalculator, LIDAR_SPECS } from '../lib/RangeCalculator';
+import { RangeCalculator } from "./RangeCalculator.js";
 
 /**
  * Class to handle LiDAR intensity calculations

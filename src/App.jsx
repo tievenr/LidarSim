@@ -1,6 +1,5 @@
-// src/App.jsx
 import React from 'react';
-import LidarSimulation from './components/LidarSimulation';
+import LidarSimulation from './sensors/lidar/components/LidarSimulation';
 import './App.css';
 
 function App ()

@@ -2,20 +2,22 @@ import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Sphere } from '@react-three/drei';
-import {
-    initializeVerticalAngles,
-    updateScanAngle,
-    getSensorPosition,
-    collectIntersectableMeshes,
-    castRaysForFrame,
-} from './ScanningLogic';
-import {
-    clearDebugRays,
-    visualizeScanPattern,
-    clearScanPattern
-} from './VisualizationLogic';
-import { LidarFrameManager } from './LidarFrameExport';
-import { createLidarConfig } from './LidarConfig';
+import
+    {
+        initializeVerticalAngles,
+        updateScanAngle,
+        getSensorPosition,
+        collectIntersectableMeshes,
+        castRaysForFrame,
+    } from '../logic/ScanningLogic';  // ✅ CORRECT PATH
+import
+    {
+        clearDebugRays,
+        visualizeScanPattern,
+        clearScanPattern
+    } from '../logic/VisualizationLogic';  // ✅ CORRECT PATH
+import { LidarFrameManager } from '../utils/ExportLogic';  // ✅ CORRECT PATH
+import { createLidarConfig } from '../config/LidarConfig';  // ✅ CORRECT PATH
 
 // Maximum number of points to store in the circular buffer for visualization
 const MAX_POINTS = 50000; // Reduced for better performance
