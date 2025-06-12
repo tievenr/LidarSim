@@ -11,11 +11,19 @@ const LidarSimulation = () =>
 {
     const [ showDebugRays, setShowDebugRays ] = useState( false );
 
-    return (
-        <div style={{ width: '100vw', height: '100vh' }}>
+    return (        <div style={{ width: '100vw', height: '100vh' }}>
             <Canvas camera={{ position: [ 0, 5, 15 ], fov: 50 }}>
                 <Scene showDebugRays={showDebugRays} />
-                <OrbitControls />
+                <OrbitControls 
+                    enableDamping={false}
+                    dampingFactor={0}
+                    enablePan={true}
+                    enableZoom={true}
+                    enableRotate={true}
+                    maxPolarAngle={Math.PI}
+                    minDistance={1}
+                    maxDistance={100}
+                />
                 <Stats />
             </Canvas>
             <UIControls />

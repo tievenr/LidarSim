@@ -204,28 +204,7 @@ const LidarSensor = ({
             scene,
             rayLines.current,
             showDebugRays,
-            currentTime
-        );
-
-        // Debug logging
-        console.log("Frame update", {
-            baseAngle: scanState.current.horizontalAngle,
-            scanPhase: scanState.current.scanPhase,
-            frameCount: scanState.current.frameCount,
-            pointCount: newPoints.length
-        });
-
-        // Log point distribution every ~30 frames
-        frameCounter.current++;
-        if (frameCounter.current % 30 === 0) {
-            console.log("Point distribution:", 
-                newPoints.map(p => ({
-                    x: Math.round(p.x * 100) / 100,
-                    y: Math.round(p.y * 100) / 100,
-                    z: Math.round(p.z * 100) / 100
-                })).slice(0, 5)
-            );
-        }
+            currentTime        );
 
         // Add new points to visualization buffer (limited set for display)
         addPointsToCircularBuffer(newPoints);
