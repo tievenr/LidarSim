@@ -68,6 +68,19 @@ const UIControls = () =>
                 }}>
                     LiDAR Control Panel
                 </h3>
+                
+                {/* Motion Artifacts Warning */}
+                <div style={{
+                    marginTop: '8px',
+                    padding: '6px 8px',
+                    background: 'rgba(255, 152, 0, 0.1)',
+                    border: '1px solid rgba(255, 152, 0, 0.3)',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    color: '#FFA726'
+                }}>
+                    ⚠️ Motion Artifacts Demo: Watch for ghost trails from moving objects
+                </div>
             </div>            {/* LiDAR Configuration */}
             <div style={{ padding: '16px 20px' }}>
                 <h4 style={{ margin: '0 0 12px', color: '#E0E0E0', fontSize: '14px' }}>

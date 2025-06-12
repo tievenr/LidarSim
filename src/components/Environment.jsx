@@ -1,10 +1,14 @@
 import React from 'react';
 import { Box, Plane } from '@react-three/drei';
+import MovingObjects from './MovingObjects';
 
 const Environment = () =>
 {
     return (
-        <>            {/* Ground plane */}
+        <>            {/* Moving objects for motion testing */}
+            <MovingObjects />
+
+            {/* Ground plane */}
             <Plane
                 args={[ 200, 200 ]}
                 rotation={[ -Math.PI / 2, 0, 0 ]}
