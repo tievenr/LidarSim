@@ -1,5 +1,5 @@
 import React from 'react';
-import { Environment } from './Environment';
+import Environment from './Environment';
 import LidarSensor from '../sensors/lidar/components/LidarSensor';
 
 /**

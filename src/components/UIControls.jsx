@@ -122,6 +122,27 @@ const UIControls = () =>
                             {config.maxRange}
                         </span>
                     </div>
+                </div>                {/* Range effectiveness indicator */}
+                <div style={{
+                    marginTop: '6px',
+                    padding: '6px 8px',
+                    background: 'rgba(76, 175, 80, 0.1)',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(76, 175, 80, 0.2)'
+                }}>
+                    <div style={{ fontSize: '10px', marginBottom: '4px', color: '#4CAF50', fontWeight: 'bold' }}>
+                        Effective Detection Range:
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '2px' }}>
+                        <span style={{ color: '#E0E0E0' }}>
+                            🟦 Dark objects: {Math.round( config.maxRange * 0.57 )}m
+                        </span>
+                        <span style={{ color: '#E0E0E0' }}>
+                            ⬜ Bright objects: {config.maxRange}m
+                        </span>
+                    </div>                    <div style={{ fontSize: '9px', color: '#B0B0B0', marginTop: '4px', lineHeight: '1.2' }}>
+                        Test objects placed at 20-300m with different materials to visualize range effects
+                    </div>
                 </div>
             </div>
 
