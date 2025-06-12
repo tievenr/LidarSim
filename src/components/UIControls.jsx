@@ -1,16 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useLidarConfig } from '../sensors/lidar/context/LidarConfigContext';
 
-/**
- * Professional UI Controls component for LiDAR simulation
- */
 const UIControls = () =>
 {
     const { config, updateConfig } = useLidarConfig();
     const [ captureStatus, setCaptureStatus ] = useState( 'idle' );
     const [ frameStats, setFrameStats ] = useState( { frameCount: 0, totalPoints: 0 } );
 
-    // Update stats periodically when capturing
     useEffect( () =>
     {
         if ( captureStatus === 'capturing' && window.lidarFrameManager )
@@ -24,7 +20,6 @@ const UIControls = () =>
         }
     }, [ captureStatus ] );
 
-    // Handle capture toggle
     const toggleCapture = () =>
     {
         if ( captureStatus === 'idle' || captureStatus === 'stopped' )
