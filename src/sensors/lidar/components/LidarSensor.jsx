@@ -48,14 +48,13 @@ const LidarSensor = ( {
     const [ isCapturing, setIsCapturing ] = useState( false );
     const [ frameStats, setFrameStats ] = useState( { frameCount: 0 } );
     const [ showPattern, setShowPattern ] = useState( false );    // Configuration - use context config merged with props
-    const lidarConfig = useMemo(() => {
-        const finalConfig = createLidarConfig({
+    const lidarConfig = useMemo( () =>
+    {
+        return createLidarConfig( {
             ...contextConfig,
             ...config
-        });
-        console.log('⚡ LiDAR Sensor Config Updated:', finalConfig);
-        return finalConfig;
-    }, [contextConfig, config]);
+        } );
+    }, [ contextConfig, config ] );
 
     // Circular buffer state for visualization.
     // We'll use a ref to store our circular buffer state to avoid re-renders.
@@ -203,17 +202,15 @@ const LidarSensor = ( {
             delete window.exportLidarFrames;
             delete window.clearLidarFrames;
         };
-    }, [] );
-
-    // Core scanning logic with throttling
+    }, [] );    // Core scanning logic with optimized throttling
     const lastUpdateTime = useRef( 0 );
     useFrame( ( state, delta ) =>
     {
         if ( !sensorRef.current ) return;
 
-        // Throttle updates to 60 FPS max
+        // Throttle updates to 120 FPS max for better performance
         const now = state.clock.elapsedTime;
-        if ( now - lastUpdateTime.current < 1 / 60 ) return;
+        if ( now - lastUpdateTime.current < 1 / 120 ) return;
         lastUpdateTime.current = now;
 
         // Update horizontal angle for rotation
@@ -286,10 +283,8 @@ const LidarSensor = ( {
             {
                 buffer.hasWrapped = true;
             }
-        }
-
-        // Only update buffer attributes if we actually added points
-        if ( newPoints.length > 0 )
+        }        // Only update buffer attributes if we added a meaningful number of points (batch updates)
+        if ( newPoints.length > 10 )
         {
             updateBufferAttributes();
         }
@@ -311,9 +306,7 @@ const LidarSensor = ( {
 
         // Set the draw range to only render the filled portion of the buffer
         pointCloudGeometry.setDrawRange( 0, circularBuffer.current.pointCount );
-    };
-
-    // Render
+    };    // Render
     return (
         <>
             {/* LiDAR sensor representation */}

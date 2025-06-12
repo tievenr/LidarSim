@@ -77,14 +77,6 @@ const UIControls = () =>
             <div style={{ padding: '16px 20px' }}>
                 <h4 style={{ margin: '0 0 12px', color: '#E0E0E0', fontSize: '14px' }}>
                     Configuration
-                    <span style={{
-                        marginLeft: '8px',
-                        fontSize: '10px',
-                        color: '#4CAF50',
-                        opacity: 0.7
-                    }}>
-                        ✓ Live Updates
-                    </span>
                 </h4>
 
                 <div style={{ display: 'grid', gap: '12px' }}>
@@ -126,8 +118,7 @@ const UIControls = () =>
                             value={config.maxRange}
                             onChange={( e ) => updateConfig( 'maxRange', parseInt( e.target.value ) )}
                             style={{ width: '120px' }}
-                        />
-                        <span style={{ color: '#64B5F6', fontSize: '12px', minWidth: '40px' }}>
+                        />                        <span style={{ color: '#64B5F6', fontSize: '12px', minWidth: '40px' }}>
                             {config.maxRange}
                         </span>
                     </div>
@@ -240,4 +231,4 @@ const UIControls = () =>
     );
 };
 
-export default UIControls; 
+export default UIControls;

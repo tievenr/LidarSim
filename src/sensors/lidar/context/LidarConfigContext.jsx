@@ -27,16 +27,10 @@ export const LidarConfigProvider = ( { children } ) =>
     const [ config, setConfig ] = useState( DEFAULT_LIDAR_CONFIG );    // Update a specific configuration parameter
     const updateConfig = useCallback( ( key, value ) =>
     {
-        console.log( `🎛️ LiDAR Config Update: ${ key } = ${ value }` );
-        setConfig( prevConfig =>
-        {
-            const newConfig = {
-                ...prevConfig,
-                [ key ]: value
-            };
-            console.log( '📊 New LiDAR Config:', newConfig );
-            return newConfig;
-        } );
+        setConfig( prevConfig => ( {
+            ...prevConfig,
+            [ key ]: value
+        } ) );
     }, [] );
 
     // Update multiple configuration parameters
