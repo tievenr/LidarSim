@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { createDebugRay } from "./VisualizationLogic"; // ✅ Same folder
 import { applyVoxelFilter } from "../utils/VoxelFilter"; // ← Fixed
 import { IntensityCalculator } from "../utils/IntensityCalculator";
 
@@ -89,26 +88,13 @@ export function castSingleRay(
   timestamp,
   raycaster,
   lidarConfig,
-  scene,
-  rayLines,
-  showDebugRays
+  scene
 ) {
   raycaster.set(origin, direction);
   const intersects = raycaster.intersectObjects(meshesToIntersect, true);
 
   if (intersects.length > 0) {
     const point = intersects[0].point;
-
-    // Create debug visualization if enabled
-    if (showDebugRays) {
-      const rayLine = createDebugRay(
-        origin,
-        point,
-        channelIndex / lidarConfig.numChannels,
-        scene
-      );
-      rayLines.push(rayLine);
-    }
 
     // Calculate intensity using the IntensityCalculator
     const intensityCalculator = new IntensityCalculator(lidarConfig);
@@ -142,8 +128,6 @@ export function castRaysForFrame(
   raycaster,
   lidarConfig,
   scene,
-  rayLines,
-  showDebugRays,
   currentTime
 ) {
   const newPoints = [];
@@ -201,9 +185,7 @@ export function castRaysForFrame(
       currentTime * 1000,
       raycaster,
       lidarConfig,
-      scene,
-      rayLines,
-      showDebugRays
+      scene
     );
 
     if (point) {

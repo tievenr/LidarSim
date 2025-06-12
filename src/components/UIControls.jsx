@@ -1,20 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { useLidarConfig } from '../sensors/lidar/context/LidarConfigContext';
 
 /**
  * Professional UI Controls component for LiDAR simulation
  */
 const UIControls = () =>
 {
+    const { config, updateConfig } = useLidarConfig();
     const [ captureStatus, setCaptureStatus ] = useState( 'idle' );
     const [ frameStats, setFrameStats ] = useState( { frameCount: 0, totalPoints: 0 } );
-    const [ lidarConfig, setLidarConfig ] = useState( {
-        pointsPerFrame: 500,
-        scanRate: 10,
-        maxRange: 200,
-        minRange: 0.1,
-        verticalFOVMin: -15,
-        verticalFOVMax: 15
-    } );
 
     // Update stats periodically when capturing
     useEffect( () =>
@@ -49,17 +43,7 @@ const UIControls = () =>
         }
     };
 
-    // Handle configuration changes
-    const updateConfig = ( key, value ) =>
-    {
-        const newConfig = { ...lidarConfig, [ key ]: value };
-        setLidarConfig( newConfig );
-        // Update global config
-        if ( window.updateLidarConfig )
-        {
-            window.updateLidarConfig( newConfig );
-        }
-    }; return (
+    return (
         <div style={{
             position: 'absolute',
             top: '20px',
@@ -89,57 +73,62 @@ const UIControls = () =>
                 }}>
                     LiDAR Control Panel
                 </h3>
-            </div>
-
-            {/* LiDAR Configuration */}
+            </div>            {/* LiDAR Configuration */}
             <div style={{ padding: '16px 20px' }}>
-                <h4 style={{ margin: '0 0 12px', color: '#E0E0E0', fontSize: '14px' }}>Configuration</h4>
+                <h4 style={{ margin: '0 0 12px', color: '#E0E0E0', fontSize: '14px' }}>
+                    Configuration
+                    <span style={{
+                        marginLeft: '8px',
+                        fontSize: '10px',
+                        color: '#4CAF50',
+                        opacity: 0.7
+                    }}>
+                        ✓ Live Updates
+                    </span>
+                </h4>
 
                 <div style={{ display: 'grid', gap: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label style={{ color: '#B0B0B0', fontSize: '12px' }}>Points/Frame:</label>
-                        <input
+                        <label style={{ color: '#B0B0B0', fontSize: '12px' }}>Points/Frame:</label>                        <input
                             type="range"
                             min="100"
                             max="2000"
                             step="100"
-                            value={lidarConfig.pointsPerFrame}
+                            value={config.pointsPerFrame}
                             onChange={( e ) => updateConfig( 'pointsPerFrame', parseInt( e.target.value ) )}
                             style={{ width: '120px' }}
                         />
                         <span style={{ color: '#64B5F6', fontSize: '12px', minWidth: '40px' }}>
-                            {lidarConfig.pointsPerFrame}
+                            {config.pointsPerFrame}
                         </span>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label style={{ color: '#B0B0B0', fontSize: '12px' }}>Scan Rate (Hz):</label>
-                        <input
+                        <label style={{ color: '#B0B0B0', fontSize: '12px' }}>Scan Rate (Hz):</label>                        <input
                             type="range"
                             min="1"
                             max="30"
-                            value={lidarConfig.scanRate}
-                            onChange={( e ) => updateConfig( 'scanRate', parseInt( e.target.value ) )}
+                            value={config.scanRate / ( 2 * Math.PI )}
+                            onChange={( e ) => updateConfig( 'scanRate', parseInt( e.target.value ) * 2 * Math.PI )}
                             style={{ width: '120px' }}
                         />
                         <span style={{ color: '#64B5F6', fontSize: '12px', minWidth: '40px' }}>
-                            {lidarConfig.scanRate}
+                            {Math.round( config.scanRate / ( 2 * Math.PI ) )}
                         </span>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label style={{ color: '#B0B0B0', fontSize: '12px' }}>Max Range (m):</label>
-                        <input
+                        <label style={{ color: '#B0B0B0', fontSize: '12px' }}>Max Range (m):</label>                        <input
                             type="range"
                             min="50"
                             max="500"
                             step="10"
-                            value={lidarConfig.maxRange}
+                            value={config.maxRange}
                             onChange={( e ) => updateConfig( 'maxRange', parseInt( e.target.value ) )}
                             style={{ width: '120px' }}
                         />
                         <span style={{ color: '#64B5F6', fontSize: '12px', minWidth: '40px' }}>
-                            {lidarConfig.maxRange}
+                            {config.maxRange}
                         </span>
                     </div>
                 </div>
