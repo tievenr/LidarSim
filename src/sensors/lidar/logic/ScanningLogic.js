@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { applyVoxelFilter } from "../utils/VoxelFilter"; // ← Fixed
+import { applyVoxelFilter } from "../utils/VoxelFilter";
 import { IntensityCalculator } from "../utils/IntensityCalculator";
 
 /**

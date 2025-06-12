@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 import JSZip from "jszip";
 
 /**
@@ -17,7 +17,7 @@ export class LidarFrameManager {
     this.currentFrame = {
       points: [],
       startTime: 0,
-      frameNumber: 0
+      frameNumber: 0,
     };
   }
 
@@ -33,7 +33,7 @@ export class LidarFrameManager {
     this.currentFrame = {
       points: [],
       startTime: now,
-      frameNumber: 0
+      frameNumber: 0,
     };
   }
 
@@ -70,11 +70,8 @@ export class LidarFrameManager {
       this.currentFrame = {
         points: [],
         startTime: currentTime,
-        frameNumber: this.frames.length
+        frameNumber: this.frames.length,
       };
-
-      // Debug log
-      console.log(`New frame started: ${this.frames.length}, Interval: ${timeSinceLastFrame}ms, Points: ${points.length}`);
     }
 
     // Add points to current frame
@@ -89,7 +86,7 @@ export class LidarFrameManager {
     this.currentFrame = {
       points: [],
       startTime: 0,
-      frameNumber: 0
+      frameNumber: 0,
     };
     this.lastFrameTime = null;
   }
@@ -161,14 +158,17 @@ DATA ascii
     }
 
     const zip = new JSZip();
-    
+
     // Create a folder for the frames
     const framesFolder = zip.folder("frames");
-    
+
     // Export each frame as a PCD file
     this.frames.forEach((frame, index) => {
       const pcdContent = this.generatePCD(frame.points);
-      framesFolder.file(`frame_${index.toString().padStart(6, '0')}.pcd`, pcdContent);
+      framesFolder.file(
+        `frame_${index.toString().padStart(6, "0")}.pcd`,
+        pcdContent
+      );
     });
 
     // Generate and download the zip file
@@ -198,9 +198,9 @@ DATA ascii
     header += `DATA ascii\n`;
 
     // PCD data
-    const data = points.map(point => 
-      `${point.x} ${point.y} ${point.z} ${point.intensity}`
-    ).join('\n');
+    const data = points
+      .map((point) => `${point.x} ${point.y} ${point.z} ${point.intensity}`)
+      .join("\n");
 
     return header + data;
   }
@@ -212,10 +212,15 @@ DATA ascii
   getFrameStatistics() {
     return {
       frameCount: this.frames.length,
-      totalPoints: this.frames.reduce((sum, frame) => sum + frame.points.length, 0),
-      averagePointsPerFrame: this.frames.length > 0 
-        ? this.frames.reduce((sum, frame) => sum + frame.points.length, 0) / this.frames.length 
-        : 0
+      totalPoints: this.frames.reduce(
+        (sum, frame) => sum + frame.points.length,
+        0
+      ),
+      averagePointsPerFrame:
+        this.frames.length > 0
+          ? this.frames.reduce((sum, frame) => sum + frame.points.length, 0) /
+            this.frames.length
+          : 0,
     };
   }
 }

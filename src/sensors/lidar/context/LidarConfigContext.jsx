@@ -1,14 +1,8 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { DEFAULT_LIDAR_CONFIG } from '../config/LidarConfig';
 
-/**
- * Context for managing LiDAR configuration across components
- */
 const LidarConfigContext = createContext();
 
-/**
- * Hook to use LiDAR configuration context
- */
 export const useLidarConfig = () =>
 {
     const context = useContext( LidarConfigContext );
@@ -19,12 +13,10 @@ export const useLidarConfig = () =>
     return context;
 };
 
-/**
- * Provider component for LiDAR configuration
- */
 export const LidarConfigProvider = ( { children } ) =>
 {
-    const [ config, setConfig ] = useState( DEFAULT_LIDAR_CONFIG );    // Update a specific configuration parameter
+    const [ config, setConfig ] = useState( DEFAULT_LIDAR_CONFIG );
+
     const updateConfig = useCallback( ( key, value ) =>
     {
         setConfig( prevConfig => ( {
@@ -33,7 +25,6 @@ export const LidarConfigProvider = ( { children } ) =>
         } ) );
     }, [] );
 
-    // Update multiple configuration parameters
     const updateMultipleConfig = useCallback( ( updates ) =>
     {
         setConfig( prevConfig => ( {
@@ -42,7 +33,6 @@ export const LidarConfigProvider = ( { children } ) =>
         } ) );
     }, [] );
 
-    // Reset configuration to defaults
     const resetConfig = useCallback( () =>
     {
         setConfig( DEFAULT_LIDAR_CONFIG );

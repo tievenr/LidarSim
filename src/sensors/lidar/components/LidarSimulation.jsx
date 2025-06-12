@@ -5,9 +5,6 @@ import Scene from '../../../components/Scene';
 import UIControls from '../../../components/UIControls';
 import { LidarConfigProvider } from '../context/LidarConfigContext';
 
-/**
- * Main LiDAR simulation component
- */
 const LidarSimulation = () =>
 {
     return (

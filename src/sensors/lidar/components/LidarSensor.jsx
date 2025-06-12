@@ -42,12 +42,10 @@ const LidarSensor = ( {
     const { config: contextConfig } = useLidarConfig();
 
     // Frame manager for capturing and exporting frames
-    const frameManager = useRef( null );
-
-    // UI state
-    const [ isCapturing, setIsCapturing ] = useState( false );
+    const frameManager = useRef( null ); const [ isCapturing, setIsCapturing ] = useState( false );
     const [ frameStats, setFrameStats ] = useState( { frameCount: 0 } );
-    const [ showPattern, setShowPattern ] = useState( false );    // Configuration - use context config merged with props
+    const [ showPattern, setShowPattern ] = useState( false );
+
     const lidarConfig = useMemo( () =>
     {
         return createLidarConfig( {
@@ -93,11 +91,9 @@ const LidarSensor = ( {
             lidarConfig.numChannels,
             lidarConfig.verticalFOV,
             lidarConfig.verticalFOVMin,
-            lidarConfig.verticalFOVMax
-        );
+            lidarConfig.verticalFOVMax );
     }, [ lidarConfig.numChannels, lidarConfig.verticalFOV, lidarConfig.verticalFOVMin, lidarConfig.verticalFOVMax ] );
 
-    // ===== VISUALIZATION COMPONENTS =====
     const raycaster = useMemo( () => new THREE.Raycaster(), [] );
 
     // Create point cloud geometry and material once with our fixed buffer size
@@ -119,10 +115,11 @@ const LidarSensor = ( {
             circularBuffer.current.colors,
             3
         );
-        colorAttribute.setUsage( THREE.DynamicDrawUsage );
-        geometry.setAttribute( 'color', colorAttribute );        // Create material for points
+        colorAttribute.setUsage( THREE.DynamicDrawUsage ); geometry.setAttribute( 'color', colorAttribute );
+
+        // Create material for points
         const material = new THREE.PointsMaterial( {
-            size: 0.1,
+            size: 0.075,
             vertexColors: true,
             sizeAttenuation: true,
             alphaTest: 0.1,
@@ -244,11 +241,8 @@ const LidarSensor = ( {
         {
             visualizeScanPattern( scene, lidarConfig, scanState.current );
         }
-    } );    // ===== BUFFER MANAGEMENT FUNCTIONS =====
-    /**
-     * Add new points to the circular buffer for visualization
-     * @param {Array} newPoints - Array of point objects from ray casting
-     */
+    } );
+
     const addPointsToCircularBuffer = ( newPoints ) =>
     {
         if ( !newPoints || newPoints.length === 0 ) return;
