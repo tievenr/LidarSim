@@ -14,7 +14,6 @@ This project simulates a **360° LiDAR environment** for my personal **Digital T
 - **Voxel Filtering**: Because nobody wants 50 million duplicate points
 
 ### **Interactive Controls**
-- **Debug Ray Visualization**: See exactly where your rays are going (pretty cool to watch)
 - **Capture Controls**: Start/stop recording like a dashcam
 - **Scene Navigation**: Fly around and see your LiDAR from different angles
 
