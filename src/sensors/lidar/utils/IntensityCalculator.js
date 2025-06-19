@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 import { RangeCalculator } from "./RangeCalculator.js";
 
 /**
@@ -9,7 +9,7 @@ export class IntensityCalculator {
   constructor(lidarConfig) {
     this.lidarConfig = lidarConfig;
     // Default attenuation coefficient for 905nm wavelength in clear air
-    this.atmosphereAttenuationRate = 0.1;  // per meter
+    this.atmosphereAttenuationRate = 0.1; // per meter
   }
 
   /**
@@ -31,7 +31,13 @@ export class IntensityCalculator {
     );
 
     // Check if point is within detectable range
-    if (!RangeCalculator.isInRange(distance, materialReflectivity)) {
+    if (
+      !RangeCalculator.isInRange(
+        distance,
+        materialReflectivity,
+        this.lidarConfig.maxRange
+      )
+    ) {
       return null;
     }
 
@@ -39,7 +45,9 @@ export class IntensityCalculator {
     let intensity = 1.0;
 
     // 1. Distance-based attenuation using exponential decay formula: I/I₀ = e^(-a·d)
-    const attenuationFactor = Math.exp(-this.atmosphereAttenuationRate * distance);
+    const attenuationFactor = Math.exp(
+      -this.atmosphereAttenuationRate * distance
+    );
     intensity *= attenuationFactor;
 
     // 2. Angle of incidence (cosine law)
@@ -53,7 +61,8 @@ export class IntensityCalculator {
     intensity *= materialReflectivity;
 
     // 4. Channel-specific intensity (higher channels typically have more power)
-    const channelIntensity = 0.5 + (channelIndex / this.lidarConfig.numChannels) * 0.5;
+    const channelIntensity =
+      0.5 + (channelIndex / this.lidarConfig.numChannels) * 0.5;
     intensity *= channelIntensity;
 
     // Normalize intensity to [0, 1] range
@@ -67,4 +76,4 @@ export class IntensityCalculator {
   setAtmosphereAttenuationRate(rate) {
     this.atmosphereAttenuationRate = rate;
   }
-} 
+}

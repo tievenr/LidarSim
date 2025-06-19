@@ -1,19 +1,5 @@
-/**
- * VoxelFilter.js - Implements voxel grid filtering for point cloud data
- *
- * This module provides functions to filter point cloud data using a voxel grid approach,
- * which helps reduce redundancy while maintaining the overall structure of the data.
- */
 import * as THREE from "three";
 
-/**
- * Apply voxel grid filtering to point cloud data
- *
- * @param {Array} pointCloudData - Array of points with x, y, z, intensity, time, tag, line properties
- * @param {Number} voxelSize - Size of voxel cube in meters
- * @param {String} method - Method to use for representative point selection ('centroid', 'random', 'first')
- * @returns {Array} - Filtered array of points
- */
 export function applyVoxelFilter(
   pointCloudData,
   voxelSize = 0.1,
