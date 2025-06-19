@@ -130,13 +130,11 @@ export class LidarFrameManager {
    * @returns {String} - PCD file content.
    */
   generatePCDForFrame(frame) {
-    const {
-      pointsData,
-      pointCount
-    } = frame;
+    const { pointsData, pointCount } = frame;
 
     // PCD header
-    const header = [
+    const header =
+      [
         `# .PCD v0.7 - Point Cloud Data file format`,
         `VERSION 0.7`,
         `FIELDS x y z intensity`,
@@ -148,7 +146,7 @@ export class LidarFrameManager {
         `VIEWPOINT 0 0 0 1 0 0 0`,
         `POINTS ${pointCount}`,
         `DATA ascii`,
-      ].join('\n') + '\n';
+      ].join("\n") + "\n";
 
     // PCD data lines
     const lines = [];
@@ -161,7 +159,7 @@ export class LidarFrameManager {
       );
     }
 
-    return header + lines.join('\n');
+    return header + lines.join("\n");
   }
 
   /**
@@ -206,7 +204,7 @@ export class LidarFrameManager {
 
     // Generate and download the zip file
     const content = await zip.generateAsync({
-      type: "blob"
+      type: "blob",
     });
     const url = URL.createObjectURL(content);
     const link = document.createElement("a");
@@ -230,7 +228,8 @@ export class LidarFrameManager {
     return {
       frameCount: this.frames.length,
       totalPoints,
-      averagePointsPerFrame: this.frames.length > 0 ? totalPoints / this.frames.length : 0,
+      averagePointsPerFrame:
+        this.frames.length > 0 ? totalPoints / this.frames.length : 0,
     };
   }
 }
