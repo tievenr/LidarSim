@@ -9,27 +9,32 @@ const UIControls = () =>
 
     useEffect( () =>
     {
+        // This useEffect fetches frame statistics from the global lidarFrameManager
+        // which is exposed by the LidarSensor component.
+        // It runs an interval to update stats only when capturing.
         if ( captureStatus === 'capturing' && window.lidarFrameManager )
         {
             const interval = setInterval( () =>
             {
                 const stats = window.lidarFrameManager.getFrameStatistics();
                 setFrameStats( stats );
-            }, 500 );
-            return () => clearInterval( interval );
+            }, 500 ); // Update every 500ms
+            return () => clearInterval( interval ); // Clear interval on unmount or status change
         }
     }, [ captureStatus ] );
 
+    // Function to toggle capture status (start/stop)
     const toggleCapture = () =>
     {
         if ( captureStatus === 'idle' || captureStatus === 'stopped' )
         {
-            window.startLidarCapture?.();
+            window.startLidarCapture?.(); // Call global start function
             setCaptureStatus( 'capturing' );
         } else
         {
-            window.stopLidarCapture?.();
+            window.stopLidarCapture?.(); // Call global stop function
             setCaptureStatus( 'stopped' );
+            // Immediately update stats after stopping to show final numbers
             if ( window.lidarFrameManager )
             {
                 const stats = window.lidarFrameManager.getFrameStatistics();
@@ -39,158 +44,134 @@ const UIControls = () =>
     };
 
     return (
-        <div style={{
-            position: 'absolute',
-            top: '20px',
-            right: '20px',
-            width: '320px',
-            background: 'linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(50, 50, 50, 0.95))',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '12px',
-            color: 'white',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            fontSize: '14px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
-        }}>
-            {/* Header */}
-            <div style={{
-                padding: '16px 20px 12px',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-            }}>
-                <h3 style={{
-                    margin: 0,
-                    fontSize: '18px',
-                    fontWeight: '600',
-                    background: 'linear-gradient(45deg, #64B5F6, #42A5F5)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent'
-                }}>
+        // Main container for the control panel
+        <div className="
+            absolute top-5 right-5 w-80
+            bg-gradient-to-br from-gray-800/95 to-gray-700/95
+            backdrop-blur-md border border-gray-700
+            rounded-xl text-white font-sans text-sm
+            shadow-2xl overflow-hidden
+        ">
+            {/* Header section */}
+            <div className="p-4 border-b border-gray-700">
+                <h3 className="
+                    m-0 text-lg font-semibold
+                    bg-gradient-to-r from-blue-400 to-blue-500
+                    text-transparent bg-clip-text
+                ">
                     LiDAR Control Panel
                 </h3>
-            </div>            {/* LiDAR Configuration */}
-            <div style={{ padding: '16px 20px' }}>
-                <h4 style={{ margin: '0 0 12px', color: '#E0E0E0', fontSize: '14px' }}>
+            </div>
+
+            {/* LiDAR Configuration section */}
+            <div className="p-4">
+                <h4 className="mb-3 text-gray-200 text-sm">
                     Configuration
                 </h4>
 
-                <div style={{ display: 'grid', gap: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label style={{ color: '#B0B0B0', fontSize: '12px' }}>Points/Frame:</label>                        <input
+                <div className="grid gap-3">
+                    {/* Points/Frame Slider */}
+                    <div className="flex items-center justify-between">
+                        <label className="text-gray-400 text-xs">Points/Frame:</label>
+                        <input
                             type="range"
                             min="100"
-                            max="2000"
+                            max="20000"
                             step="100"
                             value={config.pointsPerFrame}
                             onChange={( e ) => updateConfig( 'pointsPerFrame', parseInt( e.target.value ) )}
-                            style={{ width: '120px' }}
+                            className="w-32 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer range-sm accent-blue-500"
                         />
-                        <span style={{ color: '#64B5F6', fontSize: '12px', minWidth: '40px' }}>
+                        <span className="text-blue-400 text-xs w-10 text-right">
                             {config.pointsPerFrame}
                         </span>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label style={{ color: '#B0B0B0', fontSize: '12px' }}>Scan Rate (Hz):</label>                        <input
+                    {/* Scan Rate (Hz) Slider */}
+                    <div className="flex items-center justify-between">
+                        <label className="text-gray-400 text-xs">Scan Rate (Hz):</label>
+                        <input
                             type="range"
                             min="1"
                             max="30"
-                            value={config.scanRate / ( 2 * Math.PI )}
+                            value={Math.round( config.scanRate / ( 2 * Math.PI ) )} // Display Hz
                             onChange={( e ) => updateConfig( 'scanRate', parseInt( e.target.value ) * 2 * Math.PI )}
-                            style={{ width: '120px' }}
+                            className="w-32 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer range-sm accent-blue-500"
                         />
-                        <span style={{ color: '#64B5F6', fontSize: '12px', minWidth: '40px' }}>
+                        <span className="text-blue-400 text-xs w-10 text-right">
                             {Math.round( config.scanRate / ( 2 * Math.PI ) )}
                         </span>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label style={{ color: '#B0B0B0', fontSize: '12px' }}>Max Range (m):</label>                        <input
+                    {/* Max Range (m) Slider */}
+                    <div className="flex items-center justify-between">
+                        <label className="text-gray-400 text-xs">Max Range (m):</label>
+                        <input
                             type="range"
                             min="50"
                             max="500"
                             step="10"
                             value={config.maxRange}
                             onChange={( e ) => updateConfig( 'maxRange', parseInt( e.target.value ) )}
-                            style={{ width: '120px' }}
-                        />                        <span style={{ color: '#64B5F6', fontSize: '12px', minWidth: '40px' }}>
+                            className="w-32 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer range-sm accent-blue-500"
+                        />
+                        <span className="text-blue-400 text-xs w-10 text-right">
                             {config.maxRange}
                         </span>
                     </div>
-                </div>                {/* Range effectiveness indicator */}
-                <div style={{
-                    marginTop: '6px',
-                    padding: '6px 8px',
-                    background: 'rgba(76, 175, 80, 0.1)',
-                    borderRadius: '4px',
-                    border: '1px solid rgba(76, 175, 80, 0.2)'
-                }}>
-                    <div style={{ fontSize: '10px', marginBottom: '4px', color: '#4CAF50', fontWeight: 'bold' }}>
-                        Effective Detection Range:
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '2px' }}>
-                        <span style={{ color: '#E0E0E0' }}>
-                            🟦 Dark objects: {Math.round( config.maxRange * 0.57 )}m
-                        </span>
-                        <span style={{ color: '#E0E0E0' }}>
-                            ⬜ Bright objects: {config.maxRange}m
-                        </span>
-                    </div>                    <div style={{ fontSize: '9px', color: '#B0B0B0', marginTop: '4px', lineHeight: '1.2' }}>
-                        Test objects placed at 20-300m with different materials to visualize range effects
-                    </div>
                 </div>
+
+                {/* The "Range effectiveness indicator" section has been removed */}
             </div>
 
-            {/* Frame Capture */}
-            <div style={{
-                padding: '16px 20px',
-                borderTop: '1px solid rgba(255, 255, 255, 0.1)'
-            }}>
-                <h4 style={{ margin: '0 0 12px', color: '#E0E0E0', fontSize: '14px' }}>Frame Capture</h4>
+            {/* Frame Capture section */}
+            <div className="p-4 border-t border-gray-700">
+                <h4 className="mb-3 text-gray-200 text-sm">Frame Capture</h4>
 
+                {/* Capture Button */}
                 <button
                     onClick={toggleCapture}
-                    style={{
-                        width: '100%',
-                        padding: '12px',
-                        background: captureStatus === 'capturing'
-                            ? 'linear-gradient(45deg, #f44336, #d32f2f)'
-                            : 'linear-gradient(45deg, #4CAF50, #388E3C)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        marginBottom: '12px'
-                    }}
-                    onMouseOver={( e ) => e.target.style.transform = 'translateY(-1px)'}
-                    onMouseOut={( e ) => e.target.style.transform = 'translateY(0)'}
+                    className={`
+                        w-full py-3 mb-3 rounded-lg text-sm font-semibold transition-all duration-200 ease-in-out
+                        hover:scale-[1.01] active:scale-95
+                        ${ captureStatus === 'capturing'
+                            ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/20'
+                            : 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg shadow-green-500/20'
+                        }
+                    `}
                 >
                     {captureStatus === 'capturing' ? '🔴 Stop Capture' : '🟢 Start Capture'}
                 </button>
 
                 {/* Stats Display */}
                 {frameStats.frameCount > 0 && (
-                    <div style={{
-                        padding: '12px',
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        borderRadius: '8px',
-                        marginBottom: '12px',
-                        border: '1px solid rgba(100, 181, 246, 0.2)'
-                    }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
-                            <div style={{ color: '#B0B0B0' }}>Frames:</div>
-                            <div style={{ color: '#64B5F6', fontWeight: '600' }}>{frameStats.frameCount}</div>
+                    <div className="
+                        p-3 mb-3 rounded-lg
+                        bg-gray-800/50 border border-blue-400/20
+                    ">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="text-gray-400">Frames:</div>
+                            <div className="text-blue-400 font-semibold">{frameStats.frameCount}</div>
 
-                            <div style={{ color: '#B0B0B0' }}>Total Points:</div>
-                            <div style={{ color: '#64B5F6', fontWeight: '600' }}>{frameStats.totalPoints?.toLocaleString()}</div>
+                            <div className="text-gray-400">Total Points:</div>
+                            <div className="text-blue-400 font-semibold">{frameStats.totalPoints?.toLocaleString()}</div>
 
                             {frameStats.avgPointsPerFrame && (
                                 <>
-                                    <div style={{ color: '#B0B0B0' }}>Avg/Frame:</div>
-                                    <div style={{ color: '#64B5F6', fontWeight: '600' }}>{frameStats.avgPointsPerFrame?.toLocaleString()}</div>
+                                    <div className="text-gray-400">Avg/Frame:</div>
+                                    <div className="text-blue-400 font-semibold">{frameStats.avgPointsPerFrame?.toLocaleString()}</div>
+                                </>
+                            )}
+                            {frameStats.avgFrameRate && (
+                                <>
+                                    <div className="text-gray-400">Avg FPS:</div>
+                                    <div className="text-blue-400 font-semibold">{frameStats.avgFrameRate}</div>
+                                </>
+                            )}
+                            {frameStats.pointsPerSecond && (
+                                <>
+                                    <div className="text-gray-400">Pnts/Sec:</div>
+                                    <div className="text-blue-400 font-semibold">{frameStats.pointsPerSecond.toLocaleString()}</div>
                                 </>
                             )}
                         </div>
@@ -198,23 +179,18 @@ const UIControls = () =>
                 )}
 
                 {/* Export Controls */}
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="flex gap-2">
                     <button
                         onClick={() => window.exportLidarFrames?.()}
                         disabled={frameStats.frameCount === 0}
-                        style={{
-                            flex: 1,
-                            padding: '10px',
-                            background: frameStats.frameCount > 0
-                                ? 'linear-gradient(45deg, #2196F3, #1976D2)'
-                                : 'rgba(255, 255, 255, 0.1)',
-                            color: frameStats.frameCount > 0 ? 'white' : '#666',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            cursor: frameStats.frameCount > 0 ? 'pointer' : 'not-allowed',
-                            transition: 'all 0.2s ease'
-                        }}
+                        className={`
+                            flex-1 py-2 px-3 rounded-md text-xs
+                            transition-all duration-200 ease-in-out
+                            ${ frameStats.frameCount > 0
+                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:scale-[1.01] active:scale-95'
+                                : 'bg-gray-800/30 text-gray-500 cursor-not-allowed'
+                            }
+                        `}
                     >
                         📦 Export ZIP
                     </button>
@@ -223,21 +199,18 @@ const UIControls = () =>
                         onClick={() =>
                         {
                             window.clearLidarFrames?.();
-                            setFrameStats( { frameCount: 0, totalPoints: 0 } );
-                            setCaptureStatus( 'idle' );
+                            setFrameStats( { frameCount: 0, totalPoints: 0 } ); // Reset stats immediately
+                            setCaptureStatus( 'idle' ); // Ensure capture status is reset
                         }}
                         disabled={frameStats.frameCount === 0}
-                        style={{
-                            padding: '10px 12px',
-                            background: frameStats.frameCount > 0
-                                ? 'rgba(255, 255, 255, 0.1)'
-                                : 'rgba(255, 255, 255, 0.05)',
-                            color: frameStats.frameCount > 0 ? '#E0E0E0' : '#666',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            cursor: frameStats.frameCount > 0 ? 'pointer' : 'not-allowed'
-                        }}
+                        className={`
+                            py-2 px-3 rounded-md text-xs
+                            transition-all duration-200 ease-in-out
+                            ${ frameStats.frameCount > 0
+                                ? 'bg-gray-800/30 text-gray-300 border border-gray-700 hover:scale-[1.01] active:scale-95'
+                                : 'bg-gray-800/10 text-gray-500 border border-gray-800 cursor-not-allowed'
+                            }
+                        `}
                     >
                         🗑️
                     </button>
