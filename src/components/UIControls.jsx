@@ -76,7 +76,7 @@ const UIControls = () =>
                         <input
                             type="range"
                             min="100"
-                            max="2000"
+                            max="20000"
                             step="100"
                             value={config.pointsPerFrame}
                             onChange={( e ) => updateConfig( 'pointsPerFrame', parseInt( e.target.value ) )}
@@ -121,27 +121,7 @@ const UIControls = () =>
                     </div>
                 </div>
 
-                {/* Range effectiveness indicator */}
-                <div className="
-                    mt-2 p-2
-                    bg-green-700/10 border border-green-700/20
-                    rounded-md
-                ">
-                    <div className="text-green-500 text-xs font-bold mb-1">
-                        Effective Detection Range:
-                    </div>
-                    <div className="flex justify-between text-xs mb-0.5">
-                        <span className="text-gray-200">
-                            🟦 Dark objects: {Math.round( config.maxRange * 0.57 )}m
-                        </span>
-                        <span className="text-gray-200">
-                            ⬜ Bright objects: {config.maxRange}m
-                        </span>
-                    </div>
-                    <div className="text-gray-400 text-xs mt-1 leading-tight">
-                        Test objects placed at 20-300m with different materials to visualize range effects
-                    </div>
-                </div>
+                {/* The "Range effectiveness indicator" section has been removed */}
             </div>
 
             {/* Frame Capture section */}
