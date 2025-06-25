@@ -1,6 +1,5 @@
 export class CircularPointBuffer {
   constructor(maxPoints = 200000, componentsPerPoint = 4) {
-    // x,y,z,intensity
     if (maxPoints <= 0 || !Number.isInteger(maxPoints)) {
       throw new Error("maxPoints must be a positive integer.");
     }
@@ -12,7 +11,7 @@ export class CircularPointBuffer {
     this.componentsPerPoint = componentsPerPoint;
     this.bufferLength = maxPoints * componentsPerPoint;
 
-    // Single Float32Array for all point data
+    // Single Float32Array for all point data (x,y,z,intensity interleaved)
     this.buffer = new Float32Array(this.bufferLength);
 
     this.headIndex = 0;
@@ -20,7 +19,7 @@ export class CircularPointBuffer {
   }
 
   /**
-   * Add point - accepts both object and array formats
+   * Add point to buffer - accepts both {x,y,z,intensity} objects and [x,y,z,intensity] arrays
    */
   add(point) {
     let pointComponents;

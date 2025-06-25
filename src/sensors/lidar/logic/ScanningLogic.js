@@ -195,29 +195,3 @@ export function castRaysForFrame(
 
   return newPoints;
 }
-
-/**
- * Update point cloud data with new points
- */
-export function updatePointCloudData(
-  newPoints,
-  pointCloudData,
-  maxPoints = 100000,
-  applyFilter = true,
-  voxelSize = 0.1
-) {
-  // Add new points
-  pointCloudData.push(...newPoints);
-
-  // Apply voxel filtering if enabled
-  if (applyFilter) {
-    pointCloudData = applyVoxelFilter(pointCloudData, voxelSize);
-  }
-
-  // Limit total number of points
-  if (pointCloudData.length > maxPoints) {
-    pointCloudData = pointCloudData.slice(-maxPoints);
-  }
-
-  return pointCloudData;
-}
