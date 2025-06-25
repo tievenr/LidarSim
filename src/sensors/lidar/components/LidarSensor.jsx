@@ -217,9 +217,9 @@ const LidarSensor = ( {
     {
         if ( !sensorRef.current ) return;
 
-        // Throttle updates to 120 FPS max
+        // Throttle updates to 90 FPS max
         const now = state.clock.elapsedTime;
-        if ( now - lastUpdateTime.current < ( 1 / 120 ) ) return;
+        if ( now - lastUpdateTime.current < ( 1 / 30 ) ) return;
         lastUpdateTime.current = now;
 
         updateScanAngle( delta, scanState.current, lidarConfig.scanRate );

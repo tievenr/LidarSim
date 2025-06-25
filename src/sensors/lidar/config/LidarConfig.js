@@ -6,7 +6,7 @@ export const DEFAULT_LIDAR_CONFIG = {
   maxRange: 70,
   minRange: 0.1,
   scanRate: 2 * Math.PI * 10,
-  pointsPerFrame: 15000,
+  pointsPerFrame: 2500,
   pointRate: 200000,
 };
 
