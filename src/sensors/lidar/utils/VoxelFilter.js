@@ -9,27 +9,20 @@ export function applyVoxelFilter(
     return [];
   }
 
-  // Map to store voxels with points
   const voxelMap = new Map();
 
-  // Assign each point to a voxel
   pointCloudData.forEach((point) => {
-    // Calculate voxel index based on point coordinates
     const voxelX = Math.floor(point.x / voxelSize);
     const voxelY = Math.floor(point.y / voxelSize);
     const voxelZ = Math.floor(point.z / voxelSize);
-
-    // Generate a unique key for this voxel
     const voxelKey = `${voxelX},${voxelY},${voxelZ}`;
 
-    // Add point to the appropriate voxel
     if (!voxelMap.has(voxelKey)) {
       voxelMap.set(voxelKey, []);
     }
     voxelMap.get(voxelKey).push(point);
   });
 
-  // Generate representative points for each voxel
   const filteredPoints = [];
   voxelMap.forEach((pointsInVoxel) => {
     if (pointsInVoxel.length > 0) {
@@ -37,19 +30,14 @@ export function applyVoxelFilter(
 
       switch (method) {
         case "random":
-          // Select a random point from the voxel
           representativePoint =
             pointsInVoxel[Math.floor(Math.random() * pointsInVoxel.length)];
           break;
-
         case "first":
-          // Select the first point in the voxel
           representativePoint = pointsInVoxel[0];
           break;
-
         case "centroid":
         default:
-          // Calculate the centroid of all points in the voxel
           representativePoint = calculateCentroid(pointsInVoxel);
           break;
       }
@@ -61,23 +49,15 @@ export function applyVoxelFilter(
   return filteredPoints;
 }
 
-/**
- * Calculate the centroid (average) point from a collection of points
- *
- * @param {Array} points - Array of points with x, y, z properties
- * @returns {Object} - Centroid point with averaged properties
- */
 function calculateCentroid(points) {
-  // Initialize accumulators
   let sumX = 0,
     sumY = 0,
     sumZ = 0;
-  let sumIntensity = 0;
-  let sumTime = 0;
-  let tags = [];
-  let lines = [];
+  let sumIntensity = 0,
+    sumTime = 0;
+  let tags = [],
+    lines = [];
 
-  // Sum all values
   points.forEach((point) => {
     sumX += point.x;
     sumY += point.y;
@@ -88,14 +68,10 @@ function calculateCentroid(points) {
     lines.push(point.line);
   });
 
-  // Calculate averages
   const numPoints = points.length;
-
-  // Find most common tag and line
   const mostCommonTag = findMostCommon(tags);
   const mostCommonLine = findMostCommon(lines);
 
-  // Return centroid point
   return {
     x: sumX / numPoints,
     y: sumY / numPoints,
@@ -107,12 +83,6 @@ function calculateCentroid(points) {
   };
 }
 
-/**
- * Find the most common value in an array
- *
- * @param {Array} array - Array of values
- * @returns {*} - Most common value
- */
 function findMostCommon(array) {
   const counts = {};
   let maxCount = 0;
