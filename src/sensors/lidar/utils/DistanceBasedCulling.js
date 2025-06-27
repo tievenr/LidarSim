@@ -5,12 +5,11 @@ export class DistanceBasedCulling {
     this.maxRange = maxRange;
     this.minRange = minRange;
     this.bufferDistance = bufferDistance;
-    this.cullDistance = maxRange + bufferDistance; // 80m total
+    this.cullDistance = maxRange + bufferDistance;
     this.sensorPosition = new THREE.Vector3();
     this.tempVector = new THREE.Vector3();
     this.tempSphere = new THREE.Sphere();
 
-    // Performance tracking
     this.stats = {
       totalMeshes: 0,
       visibleMeshes: 0,
@@ -21,11 +20,6 @@ export class DistanceBasedCulling {
       minDistance: Infinity,
       maxDistance: 0,
     };
-
-    // Optional: Log initialization (can be removed in production)
-    // console.log(
-    //   `DistanceBasedCulling initialized: minRange=${minRange}m, maxRange=${maxRange}m, cullDistance=${this.cullDistance}m`
-    // );
   }
 
   updateSensorPosition(position) {
@@ -43,31 +37,20 @@ export class DistanceBasedCulling {
       return false;
     }
 
-    // Ensure bounding sphere is computed
     if (!mesh.geometry.boundingSphere) {
       mesh.geometry.computeBoundingSphere();
     }
 
-    // Clone the bounding sphere to avoid modifying the original
     this.tempSphere.copy(mesh.geometry.boundingSphere);
-
-    // Transform bounding sphere center to world coordinates
     this.tempSphere.center.applyMatrix4(mesh.matrixWorld);
-
-    // Calculate distance between sensor and mesh's bounding sphere center
     const distance = this.sensorPosition.distanceTo(this.tempSphere.center);
 
-    // Update min/max distance tracking
     this.stats.minDistance = Math.min(this.stats.minDistance, distance);
     this.stats.maxDistance = Math.max(this.stats.maxDistance, distance);
 
-    // Check if mesh is too close (within minimum range)
     const tooClose = distance + this.tempSphere.radius < this.minRange;
-
-    // Check if mesh is too far (beyond maximum range + buffer)
     const tooFar = distance - this.tempSphere.radius > this.cullDistance;
 
-    // Cull if either too close or too far
     return tooClose || tooFar;
   }
 
@@ -109,31 +92,15 @@ export class DistanceBasedCulling {
   updateMaxRange(newMaxRange) {
     this.maxRange = newMaxRange;
     this.cullDistance = newMaxRange + this.bufferDistance;
-    console.log(
-      `DistanceBasedCulling range updated: minRange=${this.minRange}m, maxRange=${newMaxRange}m, cullDistance=${this.cullDistance}m`
-    );
   }
 
   updateMinRange(newMinRange) {
     this.minRange = newMinRange;
-    console.log(
-      `DistanceBasedCulling min range updated: minRange=${newMinRange}m`
-    );
   }
 
-  /**
-   * Process an array of meshes and return culling results
-   * @param {THREE.Mesh[]} meshes - Array of meshes to process
-   * @param {THREE.Vector3} sensorPosition - Position of the sensor
-   * @returns {object} Object containing visible meshes and statistics
-   */
   cullMeshes(meshes, sensorPosition) {
     const startTime = performance.now();
-
-    // Update sensor position
     this.updateSensorPosition(sensorPosition);
-
-    // Reset distance tracking
     this.resetDistanceTracking();
 
     const visibleMeshes = [];
@@ -142,7 +109,6 @@ export class DistanceBasedCulling {
 
     for (const mesh of meshes) {
       if (this.shouldCullMesh(mesh)) {
-        // Determine why it was culled
         if (!mesh || !mesh.geometry) continue;
 
         if (!mesh.geometry.boundingSphere) {
@@ -155,10 +121,8 @@ export class DistanceBasedCulling {
 
         if (distance + this.tempSphere.radius < this.minRange) {
           tooClose++;
-          // Optional debug: console.log(`🔍 Culled (too close): ${mesh.name || "unnamed"} at ${distance.toFixed(2)}m`);
         } else if (distance - this.tempSphere.radius > this.cullDistance) {
           tooFar++;
-          // Optional debug: console.log(`🔍 Culled (too far): ${mesh.name || "unnamed"} at ${distance.toFixed(2)}m`);
         }
       } else {
         visibleMeshes.push(mesh);
@@ -168,7 +132,6 @@ export class DistanceBasedCulling {
     const endTime = performance.now();
     const processingTime = endTime - startTime;
 
-    // Update statistics
     this.updateStats(
       meshes.length,
       visibleMeshes.length,
