@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { applyVoxelFilter } from "../utils/VoxelFilter";
 import { IntensityCalculator } from "../utils/IntensityCalculator";
+import { DistanceBasedCulling } from "../utils/DistanceBasedCulling";
 
 /**
  * Initialize vertical angles for LiDAR beams with asymmetric distribution
@@ -69,12 +70,108 @@ export function getSensorPosition(sensorRef) {
 }
 
 /**
- * Collect all meshes in the scene that can be intersected
+ * Collects all intersectable meshes in the scene
+ * @param {THREE.Scene} scene - The three.js scene
+ * @param {THREE.Object3D} sensorRef - Reference to the sensor object (for exclusion)
+ * @param {THREE.Vector3} sensorPosition - Position of the LiDAR sensor (optional, for culling)
+ * @param {boolean} enableCulling - Whether to enable distance-based culling
+ * @returns {THREE.Mesh[]} Array of meshes that can be intersected
  */
-export function collectIntersectableMeshes(scene, sensorRef) {
+export function collectIntersectableMeshes(
+  scene,
+  sensorRef,
+  sensorPosition = null,
+  enableCulling = false
+) {
+  if (sensorPosition && enableCulling) {
+    // Use the new culling-aware function and return just the meshes
+    const result = collectIntersectableMeshesWithCulling(
+      scene,
+      sensorPosition,
+      enableCulling
+    );
+    // Filter out the sensor itself
+    return result.meshes.filter((mesh) => mesh !== sensorRef.current);
+  }
+
+  // Fallback to simple mesh collection
   return scene.children.filter((child) => {
     return child.type === "Mesh" && child !== sensorRef.current;
   });
+}
+
+/**
+ * Collects all intersectable meshes in the scene using distance-based culling
+ * @param {THREE.Scene} scene - The three.js scene
+ * @param {THREE.Vector3} sensorPosition - Position of the LiDAR sensor
+ * @param {boolean} enableCulling - Whether to enable distance-based culling
+ * @param {object} cullingOptions - Culling configuration options
+ * @returns {object} Object containing visible meshes and culling statistics
+ */
+export function collectIntersectableMeshesWithCulling(
+  scene,
+  sensorPosition,
+  enableCulling = true,
+  cullingOptions = {}
+) {
+  const startTime = performance.now();
+
+  // Initialize culling system
+  const culling = new DistanceBasedCulling(
+    cullingOptions.maxRange || 70,
+    cullingOptions.bufferDistance || 10,
+    cullingOptions.minRange || 0.2
+  );
+
+  // Collect all meshes from scene
+  const allMeshes = [];
+  scene.traverse((child) => {
+    if (child.isMesh && child.visible) {
+      allMeshes.push(child);
+    }
+  });
+
+  // Optional debug: console.log(`📊 Culling Analysis - Total meshes found: ${allMeshes.length}`);
+
+  let visibleMeshes = allMeshes;
+  let cullingStats = {
+    totalMeshes: allMeshes.length,
+    visibleMeshes: allMeshes.length,
+    culledMeshes: 0,
+    tooClose: 0,
+    tooFar: 0,
+    cullingEnabled: enableCulling,
+    processingTime: 0,
+  };
+
+  if (enableCulling && allMeshes.length > 0) {
+    // Apply distance-based culling
+    const cullingResult = culling.cullMeshes(allMeshes, sensorPosition);
+    visibleMeshes = cullingResult.visibleMeshes;
+
+    // Update statistics
+    cullingStats = {
+      ...cullingStats,
+      visibleMeshes: cullingResult.statistics.visible,
+      culledMeshes: cullingResult.statistics.culled,
+      tooClose: cullingResult.statistics.tooClose,
+      tooFar: cullingResult.statistics.tooFar,
+    };
+
+    // Optional detailed logging
+    // console.log(`🎯 Culling Results:`);
+    // console.log(`   Visible: ${cullingStats.visibleMeshes}/${cullingStats.totalMeshes}`);
+    // console.log(`   Culled: ${cullingStats.culledMeshes} (${cullingStats.tooClose} too close, ${cullingStats.tooFar} too far)`);
+    // console.log(`   Performance: ${(cullingStats.culledMeshes / cullingStats.totalMeshes) * 100}% reduction`);
+  }
+
+  const endTime = performance.now();
+  cullingStats.processingTime = endTime - startTime;
+
+  return {
+    meshes: visibleMeshes,
+    statistics: cullingStats,
+  };
 }
 
 /**
@@ -194,4 +291,73 @@ export function castRaysForFrame(
   }
 
   return newPoints;
+}
+
+/**
+ * Cast rays for a complete frame with distance-based culling support
+ * Returns both points and culling statistics
+ */
+export function castRaysForFrameWithCulling(
+  sensorPosition,
+  scene,
+  scanState,
+  raycaster,
+  lidarConfig,
+  currentTime,
+  sensorRef,
+  enableCulling = true
+) {
+  const frameStartTime = performance.now();
+
+  // Collect meshes with or without culling
+  let meshesToIntersect;
+  let cullingStats = null;
+
+  if (enableCulling) {
+    const meshCollection = collectIntersectableMeshesWithCulling(
+      scene,
+      sensorPosition,
+      true,
+      {
+        minRange: lidarConfig.minRange || 0.2,
+        maxRange: lidarConfig.maxRange || 70,
+        bufferDistance: 10,
+      }
+    );
+    meshesToIntersect = meshCollection.meshes.filter(
+      (mesh) => mesh !== sensorRef.current
+    );
+    cullingStats = meshCollection.statistics;
+  } else {
+    meshesToIntersect = collectIntersectableMeshes(
+      scene,
+      sensorRef,
+      null,
+      false
+    );
+  }
+
+  // Cast rays using the filtered mesh list
+  const newPoints = castRaysForFrame(
+    sensorPosition,
+    meshesToIntersect,
+    scanState,
+    raycaster,
+    lidarConfig,
+    scene,
+    currentTime
+  );
+
+  const frameEndTime = performance.now();
+  const frameProcessingTime = frameEndTime - frameStartTime;
+
+  return {
+    points: newPoints,
+    cullingStats: cullingStats,
+    frameStats: {
+      processingTime: frameProcessingTime,
+      pointsGenerated: newPoints.length,
+      meshesProcessed: meshesToIntersect.length,
+    },
+  };
 }

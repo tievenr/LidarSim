@@ -22,9 +22,10 @@ export class DistanceBasedCulling {
       maxDistance: 0,
     };
 
-    console.log(
-      `DistanceBasedCulling initialized: minRange=${minRange}m, maxRange=${maxRange}m, cullDistance=${this.cullDistance}m`
-    );
+    // Optional: Log initialization (can be removed in production)
+    // console.log(
+    //   `DistanceBasedCulling initialized: minRange=${minRange}m, maxRange=${maxRange}m, cullDistance=${this.cullDistance}m`
+    // );
   }
 
   updateSensorPosition(position) {
@@ -118,5 +119,74 @@ export class DistanceBasedCulling {
     console.log(
       `DistanceBasedCulling min range updated: minRange=${newMinRange}m`
     );
+  }
+
+  /**
+   * Process an array of meshes and return culling results
+   * @param {THREE.Mesh[]} meshes - Array of meshes to process
+   * @param {THREE.Vector3} sensorPosition - Position of the sensor
+   * @returns {object} Object containing visible meshes and statistics
+   */
+  cullMeshes(meshes, sensorPosition) {
+    const startTime = performance.now();
+
+    // Update sensor position
+    this.updateSensorPosition(sensorPosition);
+
+    // Reset distance tracking
+    this.resetDistanceTracking();
+
+    const visibleMeshes = [];
+    let tooClose = 0;
+    let tooFar = 0;
+
+    for (const mesh of meshes) {
+      if (this.shouldCullMesh(mesh)) {
+        // Determine why it was culled
+        if (!mesh || !mesh.geometry) continue;
+
+        if (!mesh.geometry.boundingSphere) {
+          mesh.geometry.computeBoundingSphere();
+        }
+
+        this.tempSphere.copy(mesh.geometry.boundingSphere);
+        this.tempSphere.center.applyMatrix4(mesh.matrixWorld);
+        const distance = this.sensorPosition.distanceTo(this.tempSphere.center);
+
+        if (distance + this.tempSphere.radius < this.minRange) {
+          tooClose++;
+          // Optional debug: console.log(`🔍 Culled (too close): ${mesh.name || "unnamed"} at ${distance.toFixed(2)}m`);
+        } else if (distance - this.tempSphere.radius > this.cullDistance) {
+          tooFar++;
+          // Optional debug: console.log(`🔍 Culled (too far): ${mesh.name || "unnamed"} at ${distance.toFixed(2)}m`);
+        }
+      } else {
+        visibleMeshes.push(mesh);
+      }
+    }
+
+    const endTime = performance.now();
+    const processingTime = endTime - startTime;
+
+    // Update statistics
+    this.updateStats(
+      meshes.length,
+      visibleMeshes.length,
+      processingTime,
+      tooClose,
+      tooFar
+    );
+
+    return {
+      visibleMeshes: visibleMeshes,
+      statistics: {
+        total: meshes.length,
+        visible: visibleMeshes.length,
+        culled: meshes.length - visibleMeshes.length,
+        tooClose: tooClose,
+        tooFar: tooFar,
+        processingTime: processingTime,
+      },
+    };
   }
 }

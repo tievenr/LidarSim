@@ -10,30 +10,13 @@ const Environment = () =>
     {
         const computeBoundingSpheres = () =>
         {
-            let totalMeshes = 0;
-            let boundingSphereCount = 0;
-
             scene.traverse( ( child ) =>
             {
                 if ( child.isMesh && child.geometry )
                 {
-                    totalMeshes++;
                     child.geometry.computeBoundingSphere();
-                    boundingSphereCount++;
-                    console.log( `Computed bounding sphere for: ${ child.name || child.uuid } at position: [${ child.position.x }, ${ child.position.y }, ${ child.position.z }]` );
                 }
             } );
-
-            console.log( `=== ENVIRONMENT DEBUGGING ===` );
-            console.log( `Total meshes in scene: ${ totalMeshes }` );
-            console.log( `Bounding spheres computed: ${ boundingSphereCount }` );
-            console.log( `=== Distance Categories ===` );
-            console.log( `Very close (0.2m-5m): Posts and barriers - should be in minimum range` );
-            console.log( `Close (5m-15m): Trees, rocks, buildings` );
-            console.log( `Medium (20m-40m): Containers, towers, sheds` );
-            console.log( `Far (45m-70m): Warehouses, silos, forest` );
-            console.log( `Beyond range (80m+): Magenta objects - should be culled` );
-            console.log( `===============================` );
         };
 
         const timer = setTimeout( computeBoundingSpheres, 100 );
@@ -169,6 +152,22 @@ const Environment = () =>
             <mesh name="very-close-barrier" position={[ 4, 0.5, 4 ]} castShadow receiveShadow>
                 <boxGeometry args={[ 0.2, 1, 2 ]} />
                 <meshLambertMaterial color="#ffccaa" />
+            </mesh>
+
+            {/* VERY CLOSE objects (under 0.1m from sensor at [0,2,0]) - Should be culled by minimum distance */}
+            <mesh name="very-close-1" position={[ 0.05, 2.02, 0.02 ]} castShadow receiveShadow>
+                <boxGeometry args={[ 0.02, 0.02, 0.02 ]} />
+                <meshLambertMaterial color="#ff00ff" />
+            </mesh>
+
+            <mesh name="very-close-2" position={[ -0.03, 1.98, 0.04 ]} castShadow receiveShadow>
+                <sphereGeometry args={[ 0.01 ]} />
+                <meshLambertMaterial color="#ff00ff" />
+            </mesh>
+
+            <mesh name="very-close-3" position={[ 0.02, 2.05, -0.03 ]} castShadow receiveShadow>
+                <cylinderGeometry args={[ 0.005, 0.005, 0.02 ]} />
+                <meshLambertMaterial color="#ff00ff" />
             </mesh>
 
             {/* EXTREME CLOSE objects (0.1-0.2m) - Should be culled by minimum distance */}

@@ -3,13 +3,14 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Sphere } from '@react-three/drei';
 import
-{
-    initializeVerticalAngles,
-    updateScanAngle,
-    getSensorPosition,
-    collectIntersectableMeshes,
-    castRaysForFrame,
-} from '../logic/ScanningLogic';
+    {
+        initializeVerticalAngles,
+        updateScanAngle,
+        getSensorPosition,
+        collectIntersectableMeshes,
+        castRaysForFrame,
+        castRaysForFrameWithCulling,
+    } from '../logic/ScanningLogic';
 import
 {
     visualizeScanPattern,
@@ -44,6 +45,13 @@ const LidarSensor = ( {
     const [ isCapturing, setIsCapturing ] = useState( false );
     const [ frameStats, setFrameStats ] = useState( { frameCount: 0 } );
     const [ showPattern, setShowPattern ] = useState( false );
+    const [ enableCulling, setEnableCulling ] = useState( true );
+    const [ cullingStats, setCullingStats ] = useState( null );
+    const [ performanceStats, setPerformanceStats ] = useState( {
+        lastFrameTime: 0,
+        avgFrameTime: 0,
+        pointsPerSecond: 0
+    } );
 
     const lidarConfig = useMemo( () =>
     {
@@ -224,18 +232,30 @@ const LidarSensor = ( {
 
         updateScanAngle( delta, scanState.current, lidarConfig.scanRate );
         const sensorPosition = getSensorPosition( sensorRef );
-        const meshesToIntersect = collectIntersectableMeshes( scene, sensorRef );
 
         const currentTime = Date.now() - startTime.current;
-        const newPoints = castRaysForFrame(
+
+        // Use the new culling-aware scanning function
+        const scanResult = castRaysForFrameWithCulling(
             sensorPosition,
-            meshesToIntersect,
+            scene,
             scanState.current,
             raycaster,
             lidarConfig,
-            scene,
-            currentTime
+            currentTime,
+            sensorRef,
+            enableCulling
         );
+
+        const newPoints = scanResult.points;
+
+        // Update statistics
+        setCullingStats( scanResult.cullingStats );
+        setPerformanceStats( prev => ( {
+            lastFrameTime: scanResult.frameStats.processingTime,
+            avgFrameTime: ( prev.avgFrameTime * 0.9 ) + ( scanResult.frameStats.processingTime * 0.1 ),
+            pointsPerSecond: newPoints.length / ( scanResult.frameStats.processingTime / 1000 )
+        } ) );
 
         // Add new points to buffer
         for ( const point of newPoints )
@@ -277,12 +297,47 @@ const LidarSensor = ( {
             <points ref={pointsRef} geometry={pointCloudGeometry} material={pointCloudMaterial} />
 
             <group position={[ 0, 3, 0 ]}>
-                <mesh onClick={() =>
+                {/* Pattern toggle control */}
+                <mesh position={[ -0.5, 0, 0 ]} onClick={() =>
                 {
                     setShowPattern( prev => !prev );
                 }}>
                     <boxGeometry args={[ 0.2, 0.2, 0.2 ]} />
                     <meshBasicMaterial color={showPattern ? 0x00ff00 : 0xff0000} />
+                </mesh>
+
+                {/* Culling toggle control */}
+                <mesh position={[ 0.5, 0, 0 ]} onClick={() =>
+                {
+                    setEnableCulling( prev => !prev );
+                    console.log( `🎛️ Distance-based culling ${ !enableCulling ? 'ENABLED' : 'DISABLED' }` );
+                }}>
+                    <boxGeometry args={[ 0.2, 0.2, 0.2 ]} />
+                    <meshBasicMaterial color={enableCulling ? 0x0080ff : 0x808080} />
+                </mesh>
+            </group>
+
+            {/* Statistics display (invisible mesh with onClick for console output) */}
+            <group position={[ 0, 4, 0 ]}>
+                <mesh onClick={() =>
+                {
+                    console.log( '🔍 LiDAR Performance Statistics:' );
+                    console.log( `   Last Frame Time: ${ performanceStats.lastFrameTime.toFixed( 2 ) }ms` );
+                    console.log( `   Avg Frame Time: ${ performanceStats.avgFrameTime.toFixed( 2 ) }ms` );
+                    console.log( `   Points/Second: ${ performanceStats.pointsPerSecond.toFixed( 0 ) }` );
+
+                    if ( cullingStats )
+                    {
+                        console.log( '🎯 Culling Statistics:' );
+                        console.log( `   Total Meshes: ${ cullingStats.totalMeshes }` );
+                        console.log( `   Visible: ${ cullingStats.visibleMeshes }` );
+                        console.log( `   Culled: ${ cullingStats.culledMeshes } (${ cullingStats.tooClose } close, ${ cullingStats.tooFar } far)` );
+                        console.log( `   Efficiency: ${ ( ( cullingStats.culledMeshes / cullingStats.totalMeshes ) * 100 ).toFixed( 1 ) }% reduction` );
+                        console.log( `   Processing Time: ${ cullingStats.processingTime.toFixed( 2 ) }ms` );
+                    }
+                }}>
+                    <boxGeometry args={[ 0.15, 0.15, 0.15 ]} />
+                    <meshBasicMaterial color={0xffff00} transparent opacity={0.7} />
                 </mesh>
             </group>
         </>
