@@ -135,6 +135,7 @@ export function castSingleRay(
   scene
 ) {
   raycaster.set(origin, direction);
+  raycaster.firstHitOnly = true;
   const intersects = raycaster.intersectObjects(meshesToIntersect, true);
 
   if (intersects.length > 0) {
