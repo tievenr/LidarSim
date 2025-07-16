@@ -49,7 +49,6 @@ export function getSensorPosition(sensorRef) {
   return sensorRef.current.position.clone();
 }
 
-// PRIVATE FUNCTION - Smart mesh collection with optional culling
 function collectIntersectableMeshes(
   scene,
   sensorPosition,
@@ -142,7 +141,7 @@ export function castSingleRay(
 }
 
 // PRIVATE FUNCTION - Ray casting engine
-function castRaysForFrame(
+function castRaysInternal(
   sensorPosition,
   meshesToIntersect,
   scanState,
@@ -203,7 +202,7 @@ function castRaysForFrame(
   return newPoints;
 }
 
-export function castRaysForFrameWithCulling(
+export function castRaysForFrame(
   sensorPosition,
   scene,
   scanState,
@@ -228,7 +227,7 @@ export function castRaysForFrameWithCulling(
     }
   );
 
-  const newPoints = castRaysForFrame(
+  const newPoints = castRaysInternal(
     sensorPosition,
     meshCollection.meshes,
     scanState,

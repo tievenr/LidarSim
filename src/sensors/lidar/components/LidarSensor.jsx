@@ -7,7 +7,7 @@ import
     initializeVerticalAngles,
     updateScanAngle,
     getSensorPosition,
-    castRaysForFrameWithCulling,
+    castRaysForFrame,
 } from '../logic/ScanningLogic';
 import { LidarFrameManager } from '../utils/ExportLogic';
 import { createLidarConfig } from '../config/LidarConfig';
@@ -221,7 +221,7 @@ const LidarSensor = ( {
         const currentTime = Date.now() - startTime.current;
 
         // Use the new culling-aware scanning function
-        const scanResult = castRaysForFrameWithCulling(
+        const scanResult = castRaysForFrame(
             sensorPosition,
             scene,
             scanState.current,
