@@ -44,12 +44,6 @@ const LidarSensor = ( {
     const frameManager = useRef( null );
     const [ isCapturing, setIsCapturing ] = useState( false );
     const [ frameStats, setFrameStats ] = useState( { frameCount: 0 } );
-    const [ cullingStats, setCullingStats ] = useState( null );
-    const [ performanceStats, setPerformanceStats ] = useState( {
-        lastFrameTime: 0,
-        avgFrameTime: 0,
-        pointsPerSecond: 0
-    } );
 
     const lidarConfig = useMemo( () =>
     {
@@ -246,14 +240,6 @@ const LidarSensor = ( {
         );
 
         const newPoints = scanResult.points;
-
-        // Update statistics
-        setCullingStats( scanResult.cullingStats );
-        setPerformanceStats( prev => ( {
-            lastFrameTime: scanResult.frameStats.processingTime,
-            avgFrameTime: ( prev.avgFrameTime * 0.9 ) + ( scanResult.frameStats.processingTime * 0.1 ),
-            pointsPerSecond: newPoints.length / ( scanResult.frameStats.processingTime / 1000 )
-        } ) );
 
         // Add new points to buffer
         for ( const point of newPoints )
