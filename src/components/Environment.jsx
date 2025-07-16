@@ -1,6 +1,77 @@
 import React, { useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 
+// Object configurations
+const DISTANCE_MARKERS = [
+    { name: "distance-10m", pos: [ 0, 1, 10 ], size: [ 1.5, 2, 1.5 ], color: "#ffaaaa" },
+    { name: "distance-20m", pos: [ 5, 1.5, 20 ], size: [ 2, 3, 2 ], color: "#ffccaa" },
+    { name: "distance-30m", pos: [ -5, 1, 30 ], size: [ 2, 2, 2 ], color: "#ffddaa" },
+    { name: "distance-40m", pos: [ 8, 2, 40 ], size: [ 1.8, 4, 1.8 ], color: "#ffffaa" },
+    { name: "distance-50m", pos: [ -10, 1.5, 50 ], size: [ 2.5, 3, 2.5 ], color: "#ddffaa" },
+    { name: "distance-60m", pos: [ 12, 1, 60 ], size: [ 2, 2, 2 ], color: "#ccffaa" },
+    { name: "distance-70m", pos: [ -15, 2.5, 70 ], size: [ 3, 5, 3 ], color: "#aaffaa" },
+];
+
+const OFF_ROAD_OBJECTS = [
+    // Close range (5-15m)
+    { name: "close-tree-1", pos: [ -8, 2, 8 ], type: "cylinder", args: [ 0.5, 0.8, 4 ], color: "#b8ccaa" },
+    { name: "close-rock-1", pos: [ 12, 0.5, 12 ], type: "sphere", args: [ 1 ], color: "#cccccc" },
+    { name: "close-building-1", pos: [ -15, 3, 15 ], type: "box", args: [ 4, 6, 3 ], color: "#e0d6c4" },
+
+    // Medium range (20-40m)
+    { name: "medium-tree-cluster", pos: [ 25, 3, 25 ], type: "cylinder", args: [ 1, 1.5, 6 ], color: "#a8c498" },
+    { name: "medium-container-1", pos: [ -20, 1.5, 35 ], type: "box", args: [ 6, 3, 2.5 ], color: "#ffcc99" },
+    { name: "medium-tower", pos: [ 30, 5, 30 ], type: "cylinder", args: [ 0.8, 1.2, 10 ], color: "#bbbbbb" },
+    { name: "medium-shed", pos: [ -25, 2, 25 ], type: "box", args: [ 5, 4, 4 ], color: "#d4b896" },
+
+    // Far range (45-70m)
+    { name: "far-warehouse", pos: [ 35, 4, 50 ], type: "box", args: [ 12, 8, 8 ], color: "#b8b8b8" },
+    { name: "far-silo", pos: [ -30, 6, 55 ], type: "cylinder", args: [ 2, 2, 12 ], color: "#d0d0d0" },
+    { name: "far-forest-edge", pos: [ 40, 4, 60 ], type: "box", args: [ 8, 8, 4 ], color: "#9cb89c" },
+    { name: "far-hill", pos: [ -35, 3, 65 ], type: "sphere", args: [ 5, 8, 6 ], color: "#bcd4bc" },
+];
+
+const TEST_OBJECTS = [
+    // Very close (0.5-5m)
+    { name: "very-close-post-1", pos: [ 2, 1, 2 ], type: "cylinder", args: [ 0.1, 0.1, 2 ], color: "#ffddaa" },
+    { name: "very-close-post-2", pos: [ -3, 1, 3 ], type: "cylinder", args: [ 0.1, 0.1, 2 ], color: "#ffddaa" },
+    { name: "very-close-barrier", pos: [ 4, 0.5, 4 ], type: "box", args: [ 0.2, 1, 2 ], color: "#ffccaa" },
+
+    // Very close (under 0.1m) - Should be culled
+    { name: "very-close-1", pos: [ 0.05, 2.02, 0.02 ], type: "box", args: [ 0.02, 0.02, 0.02 ], color: "#ff00ff" },
+    { name: "very-close-2", pos: [ -0.03, 1.98, 0.04 ], type: "sphere", args: [ 0.01 ], color: "#ff00ff" },
+    { name: "very-close-3", pos: [ 0.02, 2.05, -0.03 ], type: "cylinder", args: [ 0.005, 0.005, 0.02 ], color: "#ff00ff" },
+
+    // Extreme close (0.1-0.2m) - Should be culled
+    { name: "extreme-close-1", pos: [ 0.15, 0.1, 0.1 ], type: "box", args: [ 0.05, 0.2, 0.05 ], color: "#ff0000" },
+    { name: "extreme-close-2", pos: [ -0.1, 0.1, 0.15 ], type: "sphere", args: [ 0.03 ], color: "#ff0000" },
+    { name: "extreme-close-3", pos: [ 0.2, 0.05, -0.1 ], type: "cylinder", args: [ 0.02, 0.02, 0.1 ], color: "#ff0000" },
+
+    // Beyond range (80m+) - Should be culled
+    { name: "beyond-range-1", pos: [ 0, 5, 85 ], type: "box", args: [ 10, 10, 10 ], color: "#ffccff" },
+    { name: "beyond-range-2", pos: [ 50, 3, 90 ], type: "box", args: [ 5, 6, 5 ], color: "#ffccff" },
+    { name: "beyond-range-3", pos: [ -60, 4, 95 ], type: "box", args: [ 8, 8, 8 ], color: "#ffccff" },
+    { name: "beyond-range-4", pos: [ 100, 2, 100 ], type: "box", args: [ 5, 4, 5 ], color: "#ffccff" },
+    { name: "beyond-range-5", pos: [ -80, 3, -80 ], type: "box", args: [ 6, 6, 6 ], color: "#ffccff" },
+];
+
+const BUILDINGS = [
+    { name: "office-building", pos: [ -25, 15, -25 ], size: [ 20, 30, 15 ], color: "#e0d6c4" },
+    { name: "house", pos: [ 30, 8, 35 ], size: [ 12, 8, 10 ], color: "#ddbaa6" },
+];
+
+// Geometry component helper
+const GeometryByType = ( { type, args } ) =>
+{
+    switch ( type )
+    {
+        case 'cylinder': return <cylinderGeometry args={args} />;
+        case 'sphere': return <sphereGeometry args={args} />;
+        case 'box': return <boxGeometry args={args} />;
+        default: return <boxGeometry args={args} />;
+    }
+};
+
 const Environment = () =>
 {
     const { scene } = useThree();
@@ -29,13 +100,12 @@ const Environment = () =>
 
     return (
         <>
-            {/* Ground plane - Much lighter green */}
+            {/* Ground system */}
             <mesh name="ground" rotation={[ -Math.PI / 2, 0, 0 ]} receiveShadow>
                 <planeGeometry args={[ 800, 800 ]} />
                 <meshLambertMaterial color="#d4f0d4" />
             </mesh>
 
-            {/* Road system - Light gray instead of dark */}
             <mesh name="road" position={[ 0, 0.01, 0 ]} rotation={[ -Math.PI / 2, 0, 0 ]} receiveShadow>
                 <planeGeometry args={[ 32, 400 ]} />
                 <meshLambertMaterial color="#c0c0c0" />
@@ -46,186 +116,37 @@ const Environment = () =>
                 <meshLambertMaterial color="#ffff80" />
             </mesh>
 
-            {/* Distance markers on road - Lighter, more pastel colors */}
-            <mesh name="distance-10m" position={[ 0, 1, 10 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 1.5, 2, 1.5 ]} />
-                <meshLambertMaterial color="#ffaaaa" />
-            </mesh>
+            {/* Distance markers */}
+            {DISTANCE_MARKERS.map( marker => (
+                <mesh key={marker.name} name={marker.name} position={marker.pos} castShadow receiveShadow>
+                    <boxGeometry args={marker.size} />
+                    <meshLambertMaterial color={marker.color} />
+                </mesh>
+            ) )}
 
-            <mesh name="distance-20m" position={[ 5, 1.5, 20 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 2, 3, 2 ]} />
-                <meshLambertMaterial color="#ffccaa" />
-            </mesh>
+            {/* Off-road objects */}
+            {OFF_ROAD_OBJECTS.map( obj => (
+                <mesh key={obj.name} name={obj.name} position={obj.pos} castShadow receiveShadow>
+                    <GeometryByType type={obj.type} args={obj.args} />
+                    <meshLambertMaterial color={obj.color} />
+                </mesh>
+            ) )}
 
-            <mesh name="distance-30m" position={[ -5, 1, 30 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 2, 2, 2 ]} />
-                <meshLambertMaterial color="#ffddaa" />
-            </mesh>
+            {/* Test objects */}
+            {TEST_OBJECTS.map( obj => (
+                <mesh key={obj.name} name={obj.name} position={obj.pos} castShadow receiveShadow>
+                    <GeometryByType type={obj.type} args={obj.args} />
+                    <meshLambertMaterial color={obj.color} />
+                </mesh>
+            ) )}
 
-            <mesh name="distance-40m" position={[ 8, 2, 40 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 1.8, 4, 1.8 ]} />
-                <meshLambertMaterial color="#ffffaa" />
-            </mesh>
-
-            <mesh name="distance-50m" position={[ -10, 1.5, 50 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 2.5, 3, 2.5 ]} />
-                <meshLambertMaterial color="#ddffaa" />
-            </mesh>
-
-            <mesh name="distance-60m" position={[ 12, 1, 60 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 2, 2, 2 ]} />
-                <meshLambertMaterial color="#ccffaa" />
-            </mesh>
-
-            <mesh name="distance-70m" position={[ -15, 2.5, 70 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 3, 5, 3 ]} />
-                <meshLambertMaterial color="#aaffaa" />
-            </mesh>
-
-            {/* OFF-ROAD OBJECTS - Much lighter colors */}
-
-            {/* Close range off-road objects (5-15m) */}
-            <mesh name="close-tree-1" position={[ -8, 2, 8 ]} castShadow receiveShadow>
-                <cylinderGeometry args={[ 0.5, 0.8, 4 ]} />
-                <meshLambertMaterial color="#b8ccaa" />
-            </mesh>
-
-            <mesh name="close-rock-1" position={[ 12, 0.5, 12 ]} castShadow receiveShadow>
-                <sphereGeometry args={[ 1 ]} />
-                <meshLambertMaterial color="#cccccc" />
-            </mesh>
-
-            <mesh name="close-building-1" position={[ -15, 3, 15 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 4, 6, 3 ]} />
-                <meshLambertMaterial color="#e0d6c4" />
-            </mesh>
-
-            {/* Medium range off-road objects (20-40m) */}
-            <mesh name="medium-tree-cluster" position={[ 25, 3, 25 ]} castShadow receiveShadow>
-                <cylinderGeometry args={[ 1, 1.5, 6 ]} />
-                <meshLambertMaterial color="#a8c498" />
-            </mesh>
-
-            <mesh name="medium-container-1" position={[ -20, 1.5, 35 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 6, 3, 2.5 ]} />
-                <meshLambertMaterial color="#ffcc99" />
-            </mesh>
-
-            <mesh name="medium-tower" position={[ 30, 5, 30 ]} castShadow receiveShadow>
-                <cylinderGeometry args={[ 0.8, 1.2, 10 ]} />
-                <meshLambertMaterial color="#bbbbbb" />
-            </mesh>
-
-            <mesh name="medium-shed" position={[ -25, 2, 25 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 5, 4, 4 ]} />
-                <meshLambertMaterial color="#d4b896" />
-            </mesh>
-
-            {/* Far range off-road objects (45-70m) */}
-            <mesh name="far-warehouse" position={[ 35, 4, 50 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 12, 8, 8 ]} />
-                <meshLambertMaterial color="#b8b8b8" />
-            </mesh>
-
-            <mesh name="far-silo" position={[ -30, 6, 55 ]} castShadow receiveShadow>
-                <cylinderGeometry args={[ 2, 2, 12 ]} />
-                <meshLambertMaterial color="#d0d0d0" />
-            </mesh>
-
-            <mesh name="far-forest-edge" position={[ 40, 4, 60 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 8, 8, 4 ]} />
-                <meshLambertMaterial color="#9cb89c" />
-            </mesh>
-
-            <mesh name="far-hill" position={[ -35, 3, 65 ]} castShadow receiveShadow>
-                <sphereGeometry args={[ 5, 8, 6 ]} />
-                <meshLambertMaterial color="#bcd4bc" />
-            </mesh>
-
-            {/* Very close objects (0.5-5m) - Test minimum distance culling */}
-            <mesh name="very-close-post-1" position={[ 2, 1, 2 ]} castShadow receiveShadow>
-                <cylinderGeometry args={[ 0.1, 0.1, 2 ]} />
-                <meshLambertMaterial color="#ffddaa" />
-            </mesh>
-
-            <mesh name="very-close-post-2" position={[ -3, 1, 3 ]} castShadow receiveShadow>
-                <cylinderGeometry args={[ 0.1, 0.1, 2 ]} />
-                <meshLambertMaterial color="#ffddaa" />
-            </mesh>
-
-            <mesh name="very-close-barrier" position={[ 4, 0.5, 4 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 0.2, 1, 2 ]} />
-                <meshLambertMaterial color="#ffccaa" />
-            </mesh>
-
-            {/* VERY CLOSE objects (under 0.1m from sensor at [0,2,0]) - Should be culled by minimum distance */}
-            <mesh name="very-close-1" position={[ 0.05, 2.02, 0.02 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 0.02, 0.02, 0.02 ]} />
-                <meshLambertMaterial color="#ff00ff" />
-            </mesh>
-
-            <mesh name="very-close-2" position={[ -0.03, 1.98, 0.04 ]} castShadow receiveShadow>
-                <sphereGeometry args={[ 0.01 ]} />
-                <meshLambertMaterial color="#ff00ff" />
-            </mesh>
-
-            <mesh name="very-close-3" position={[ 0.02, 2.05, -0.03 ]} castShadow receiveShadow>
-                <cylinderGeometry args={[ 0.005, 0.005, 0.02 ]} />
-                <meshLambertMaterial color="#ff00ff" />
-            </mesh>
-
-            {/* EXTREME CLOSE objects (0.1-0.2m) - Should be culled by minimum distance */}
-            <mesh name="extreme-close-1" position={[ 0.15, 0.1, 0.1 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 0.05, 0.2, 0.05 ]} />
-                <meshLambertMaterial color="#ff0000" />
-            </mesh>
-
-            <mesh name="extreme-close-2" position={[ -0.1, 0.1, 0.15 ]} castShadow receiveShadow>
-                <sphereGeometry args={[ 0.03 ]} />
-                <meshLambertMaterial color="#ff0000" />
-            </mesh>
-
-            <mesh name="extreme-close-3" position={[ 0.2, 0.05, -0.1 ]} castShadow receiveShadow>
-                <cylinderGeometry args={[ 0.02, 0.02, 0.1 ]} />
-                <meshLambertMaterial color="#ff0000" />
-            </mesh>
-
-            {/* Objects beyond culling range (80m+) - Should be culled by maximum distance */}
-            <mesh name="beyond-range-1" position={[ 0, 5, 85 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 10, 10, 10 ]} />
-                <meshLambertMaterial color="#ffccff" />
-            </mesh>
-
-            <mesh name="beyond-range-2" position={[ 50, 3, 90 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 5, 6, 5 ]} />
-                <meshLambertMaterial color="#ffccff" />
-            </mesh>
-
-            <mesh name="beyond-range-3" position={[ -60, 4, 95 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 8, 8, 8 ]} />
-                <meshLambertMaterial color="#ffccff" />
-            </mesh>
-
-            <mesh name="beyond-range-4" position={[ 100, 2, 100 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 5, 4, 5 ]} />
-                <meshLambertMaterial color="#ffccff" />
-            </mesh>
-
-            <mesh name="beyond-range-5" position={[ -80, 3, -80 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 6, 6, 6 ]} />
-                <meshLambertMaterial color="#ffccff" />
-            </mesh>
-
-            {/* Original buildings - Much lighter */}
-            <mesh name="office-building" position={[ -25, 15, -25 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 20, 30, 15 ]} />
-                <meshLambertMaterial color="#e0d6c4" />
-            </mesh>
-
-            <mesh name="house" position={[ 30, 8, 35 ]} castShadow receiveShadow>
-                <boxGeometry args={[ 12, 8, 10 ]} />
-                <meshLambertMaterial color="#ddbaa6" />
-            </mesh>
+            {/* Buildings */}
+            {BUILDINGS.map( building => (
+                <mesh key={building.name} name={building.name} position={building.pos} castShadow receiveShadow>
+                    <boxGeometry args={building.size} />
+                    <meshLambertMaterial color={building.color} />
+                </mesh>
+            ) )}
 
             {/* Lighting */}
             <ambientLight intensity={0.6} />

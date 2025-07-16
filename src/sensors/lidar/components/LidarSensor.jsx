@@ -7,15 +7,8 @@ import
     initializeVerticalAngles,
     updateScanAngle,
     getSensorPosition,
-    collectIntersectableMeshes,
-    castRaysForFrame,
     castRaysForFrameWithCulling,
 } from '../logic/ScanningLogic';
-import
-{
-    visualizeScanPattern,
-    clearScanPattern
-} from '../logic/VisualizationLogic';
 import { LidarFrameManager } from '../utils/ExportLogic';
 import { createLidarConfig } from '../config/LidarConfig';
 import { useLidarConfig } from '../context/LidarConfigContext';
