@@ -9,32 +9,27 @@ const UIControls = () =>
 
     useEffect( () =>
     {
-        // This useEffect fetches frame statistics from the global lidarFrameManager
-        // which is exposed by the LidarSensor component.
-        // It runs an interval to update stats only when capturing.
         if ( captureStatus === 'capturing' && window.lidarFrameManager )
         {
             const interval = setInterval( () =>
             {
                 const stats = window.lidarFrameManager.getFrameStatistics();
                 setFrameStats( stats );
-            }, 500 ); // Update every 500ms
-            return () => clearInterval( interval ); // Clear interval on unmount or status change
+            }, 500 );
+            return () => clearInterval( interval );
         }
     }, [ captureStatus ] );
 
-    // Function to toggle capture status (start/stop)
     const toggleCapture = () =>
     {
         if ( captureStatus === 'idle' || captureStatus === 'stopped' )
         {
-            window.startLidarCapture?.(); // Call global start function
+            window.startLidarCapture?.();
             setCaptureStatus( 'capturing' );
         } else
         {
-            window.stopLidarCapture?.(); // Call global stop function
+            window.stopLidarCapture?.();
             setCaptureStatus( 'stopped' );
-            // Immediately update stats after stopping to show final numbers
             if ( window.lidarFrameManager )
             {
                 const stats = window.lidarFrameManager.getFrameStatistics();
@@ -44,33 +39,17 @@ const UIControls = () =>
     };
 
     return (
-        // Main container for the control panel
-        <div className="
-            absolute top-5 right-5 w-80
-            bg-gradient-to-br from-gray-800/95 to-gray-700/95
-            backdrop-blur-md border border-gray-700
-            rounded-xl text-white font-sans text-sm
-            shadow-2xl overflow-hidden
-        ">
-            {/* Header section */}
+        <div className="absolute top-5 right-5 w-80 bg-gray-800/95 backdrop-blur-md border border-gray-700 rounded-xl text-white text-sm shadow-2xl">
             <div className="p-4 border-b border-gray-700">
-                <h3 className="
-                    m-0 text-lg font-semibold
-                    bg-gradient-to-r from-blue-400 to-blue-500
-                    text-transparent bg-clip-text
-                ">
+                <h3 className="m-0 text-lg font-semibold text-blue-400">
                     LiDAR Control Panel
                 </h3>
             </div>
 
-            {/* LiDAR Configuration section */}
             <div className="p-4">
-                <h4 className="mb-3 text-gray-200 text-sm">
-                    Configuration
-                </h4>
+                <h4 className="mb-3 text-gray-200 text-sm">Configuration</h4>
 
-                <div className="grid gap-3">
-                    {/* Points/Frame Slider */}
+                <div className="space-y-3">
                     <div className="flex items-center justify-between">
                         <label className="text-gray-400 text-xs">Points/Frame:</label>
                         <input
@@ -80,30 +59,28 @@ const UIControls = () =>
                             step="100"
                             value={config.pointsPerFrame}
                             onChange={( e ) => updateConfig( 'pointsPerFrame', parseInt( e.target.value ) )}
-                            className="w-32 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer range-sm accent-blue-500"
+                            className="w-32 accent-blue-500"
                         />
                         <span className="text-blue-400 text-xs w-10 text-right">
                             {config.pointsPerFrame}
                         </span>
                     </div>
 
-                    {/* Scan Rate (Hz) Slider */}
                     <div className="flex items-center justify-between">
                         <label className="text-gray-400 text-xs">Scan Rate (Hz):</label>
                         <input
                             type="range"
                             min="1"
                             max="30"
-                            value={Math.round( config.scanRate / ( 2 * Math.PI ) )} // Display Hz
+                            value={Math.round( config.scanRate / ( 2 * Math.PI ) )}
                             onChange={( e ) => updateConfig( 'scanRate', parseInt( e.target.value ) * 2 * Math.PI )}
-                            className="w-32 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer range-sm accent-blue-500"
+                            className="w-32 accent-blue-500"
                         />
                         <span className="text-blue-400 text-xs w-10 text-right">
                             {Math.round( config.scanRate / ( 2 * Math.PI ) )}
                         </span>
                     </div>
 
-                    {/* Max Range (m) Slider */}
                     <div className="flex items-center justify-between">
                         <label className="text-gray-400 text-xs">Max Range (m):</label>
                         <input
@@ -113,42 +90,30 @@ const UIControls = () =>
                             step="10"
                             value={config.maxRange}
                             onChange={( e ) => updateConfig( 'maxRange', parseInt( e.target.value ) )}
-                            className="w-32 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer range-sm accent-blue-500"
+                            className="w-32 accent-blue-500"
                         />
                         <span className="text-blue-400 text-xs w-10 text-right">
                             {config.maxRange}
                         </span>
                     </div>
                 </div>
-
-                {/* The "Range effectiveness indicator" section has been removed */}
             </div>
 
-            {/* Frame Capture section */}
             <div className="p-4 border-t border-gray-700">
                 <h4 className="mb-3 text-gray-200 text-sm">Frame Capture</h4>
 
-                {/* Capture Button */}
                 <button
                     onClick={toggleCapture}
-                    className={`
-                        w-full py-3 mb-3 rounded-lg text-sm font-semibold transition-all duration-200 ease-in-out
-                        hover:scale-[1.01] active:scale-95
-                        ${ captureStatus === 'capturing'
-                            ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/20'
-                            : 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg shadow-green-500/20'
-                        }
-                    `}
+                    className={`w-full py-3 mb-3 rounded-lg text-sm font-semibold transition-all ${ captureStatus === 'capturing'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-green-600 text-white'
+                        }`}
                 >
                     {captureStatus === 'capturing' ? '🔴 Stop Capture' : '🟢 Start Capture'}
                 </button>
 
-                {/* Stats Display */}
                 {frameStats.frameCount > 0 && (
-                    <div className="
-                        p-3 mb-3 rounded-lg
-                        bg-gray-800/50 border border-blue-400/20
-                    ">
+                    <div className="p-3 mb-3 rounded-lg bg-gray-800/50 border border-blue-400/20">
                         <div className="grid grid-cols-2 gap-2 text-xs">
                             <div className="text-gray-400">Frames:</div>
                             <div className="text-blue-400 font-semibold">{frameStats.frameCount}</div>
@@ -178,19 +143,14 @@ const UIControls = () =>
                     </div>
                 )}
 
-                {/* Export Controls */}
                 <div className="flex gap-2">
                     <button
                         onClick={() => window.exportLidarFrames?.()}
                         disabled={frameStats.frameCount === 0}
-                        className={`
-                            flex-1 py-2 px-3 rounded-md text-xs
-                            transition-all duration-200 ease-in-out
-                            ${ frameStats.frameCount > 0
-                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:scale-[1.01] active:scale-95'
+                        className={`flex-1 py-2 px-3 rounded-md text-xs transition-all ${ frameStats.frameCount > 0
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
                                 : 'bg-gray-800/30 text-gray-500 cursor-not-allowed'
-                            }
-                        `}
+                            }`}
                     >
                         📦 Export ZIP
                     </button>
@@ -199,18 +159,14 @@ const UIControls = () =>
                         onClick={() =>
                         {
                             window.clearLidarFrames?.();
-                            setFrameStats( { frameCount: 0, totalPoints: 0 } ); // Reset stats immediately
-                            setCaptureStatus( 'idle' ); // Ensure capture status is reset
+                            setFrameStats( { frameCount: 0, totalPoints: 0 } );
+                            setCaptureStatus( 'idle' );
                         }}
                         disabled={frameStats.frameCount === 0}
-                        className={`
-                            py-2 px-3 rounded-md text-xs
-                            transition-all duration-200 ease-in-out
-                            ${ frameStats.frameCount > 0
-                                ? 'bg-gray-800/30 text-gray-300 border border-gray-700 hover:scale-[1.01] active:scale-95'
+                        className={`py-2 px-3 rounded-md text-xs transition-all ${ frameStats.frameCount > 0
+                                ? 'bg-gray-600 text-gray-300 border border-gray-700 hover:bg-gray-700'
                                 : 'bg-gray-800/10 text-gray-500 border border-gray-800 cursor-not-allowed'
-                            }
-                        `}
+                            }`}
                     >
                         🗑️
                     </button>
