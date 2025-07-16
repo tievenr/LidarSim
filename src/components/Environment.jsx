@@ -5,18 +5,22 @@ const Environment = () =>
 {
     const { scene } = useThree();
 
-    // Ensure all meshes have computed bounding spheres
     useEffect( () =>
     {
         const computeBoundingSpheres = () =>
         {
+            console.time( 'Bounding Sphere Computation' );
+
             scene.traverse( ( child ) =>
             {
                 if ( child.isMesh && child.geometry )
                 {
                     child.geometry.computeBoundingSphere();
+                    console.log( `Processed: ${ child.name || 'unnamed mesh' }` );
                 }
             } );
+
+            console.timeEnd( 'Bounding Sphere Computation' );
         };
 
         const timer = setTimeout( computeBoundingSpheres, 100 );
