@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { applyVoxelFilter } from "../utils/VoxelFilter";
 import { IntensityCalculator } from "../utils/IntensityCalculator";
 import { DistanceBasedCulling } from "../utils/DistanceBasedCulling";
 
@@ -50,7 +49,8 @@ export function getSensorPosition(sensorRef) {
   return sensorRef.current.position.clone();
 }
 
-export function collectIntersectableMeshes(
+// PRIVATE FUNCTIONS (removed export) - only used internally
+function collectIntersectableMeshes(
   scene,
   sensorRef,
   sensorPosition = null,
@@ -70,7 +70,7 @@ export function collectIntersectableMeshes(
   });
 }
 
-export function collectIntersectableMeshesWithCulling(
+function collectIntersectableMeshesWithCulling(
   scene,
   sensorPosition,
   enableCulling = true,
@@ -160,7 +160,8 @@ export function castSingleRay(
   return null;
 }
 
-export function castRaysForFrame(
+// PRIVATE FUNCTION (removed export) - only used internally
+function castRaysForFrame(
   sensorPosition,
   meshesToIntersect,
   scanState,
