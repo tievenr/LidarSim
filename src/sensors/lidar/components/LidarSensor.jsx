@@ -106,46 +106,6 @@ const LidarSensor = ( {
         };
     }, [] );
 
-    const updateVisualization = useCallback( () =>
-    {
-        if ( !pointCloudGeometry ) return;
-
-        const buffer = pointBuffer.current;
-        const pointCount = buffer.getCurrentSize();
-
-        if ( pointCount === 0 )
-        {
-            pointCloudGeometry.setDrawRange( 0, 0 );
-            return;
-        }
-
-        const sourceData = buffer.getPointsAsTypedArray();
-        const positionAttribute = pointCloudGeometry.attributes.position;
-        const colorAttribute = pointCloudGeometry.attributes.color;
-
-        for ( let i = 0; i < pointCount; i++ )
-        {
-            const sourceIndex = i * 4;
-            const destIndex = i * 3;
-
-            // Copy position (x, y, z)
-            positionAttribute.array[ destIndex ] = sourceData[ sourceIndex ];
-            positionAttribute.array[ destIndex + 1 ] = sourceData[ sourceIndex + 1 ];
-            positionAttribute.array[ destIndex + 2 ] = sourceData[ sourceIndex + 2 ];
-
-            // Copy intensity to color (r, g, b)
-            const intensity = sourceData[ sourceIndex + 3 ];
-            colorAttribute.array[ destIndex ] = intensity;
-            colorAttribute.array[ destIndex + 1 ] = intensity;
-            colorAttribute.array[ destIndex + 2 ] = intensity;
-        }
-
-        positionAttribute.needsUpdate = true;
-        colorAttribute.needsUpdate = true;
-        pointCloudGeometry.computeBoundingSphere();
-        pointCloudGeometry.setDrawRange( 0, pointCount );
-    }, [ pointCloudGeometry ] );
-
     //Incremental visualization - process only new points
     const updateVisualizationIncremental = useCallback( () =>
     {
