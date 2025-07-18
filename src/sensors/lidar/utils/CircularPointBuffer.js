@@ -14,7 +14,6 @@ export class CircularPointBuffer {
     this.headIndex = 0;
     this.size = 0;
 
-    
     this.lastReadIndex = 0; // Last position read by visualization
     this.addedSinceLastRead = 0; // Points added since last visualization read
     this.frameAdditionCount = 0; // Points added in current frame
@@ -49,6 +48,9 @@ export class CircularPointBuffer {
     if (this.size < this.maxPoints) {
       this.size++;
     }
+
+    this.addedSinceLastRead++; // Track total points added since last visualization read
+    this.frameAdditionCount++; // Track points added in current scanning frame
   }
 
   getPointsAsTypedArray() {
