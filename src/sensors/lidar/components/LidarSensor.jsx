@@ -146,37 +146,31 @@ const LidarSensor = ( {
         pointCloudGeometry.setDrawRange( 0, pointCount );
     }, [ pointCloudGeometry ] );
 
-    //Incremental visualization update function
+    //Incremental visualization - process only new points
     const updateVisualizationIncremental = useCallback( () =>
     {
         if ( !pointCloudGeometry ) return;
 
-        //Extract only new points since last visualization read
+        // Extract only new points since last read
         const newPointsData = pointBuffer.current.getNewPointsTypedArray();
         const newPointCount = newPointsData.length / 4;
 
-        //Early exit if no new points
-        if ( newPointCount === 0 )
-        {
-            return;
-        }
+        if ( newPointCount === 0 ) return;
 
         const buffer = pointBuffer.current;
         const currentTotalPoints = buffer.getCurrentSize();
-
-        //Calculate where to append new points in GPU buffers
         const appendStartIndex = currentTotalPoints - newPointCount;
 
         console.log( `Incremental update: ${ newPointCount } new points, appending at index ${ appendStartIndex }` );
- 
+
         const positionAttribute = pointCloudGeometry.attributes.position;
         const colorAttribute = pointCloudGeometry.attributes.color;
 
-        //Process only new points and append to GPU buffers
+        // Process only new points and append to GPU buffers
         for ( let i = 0; i < newPointCount; i++ )
         {
-            const sourceIndex = i * 4; // Index in new points data
-            const gpuIndex = ( appendStartIndex + i ) * 3; // Index in GPU buffer
+            const sourceIndex = i * 4;
+            const gpuIndex = ( appendStartIndex + i ) * 3;
 
             // Copy position (x, y, z)
             positionAttribute.array[ gpuIndex ] = newPointsData[ sourceIndex ];
@@ -190,7 +184,25 @@ const LidarSensor = ( {
             colorAttribute.array[ gpuIndex + 2 ] = intensity;
         }
 
-        // TODO: Add GPU buffer update logic in next step
+        // Surgical GPU buffer updates - only upload new data
+        const updateStartByte = appendStartIndex * 3;
+        const updateByteLength = newPointCount * 3;
+
+        positionAttribute.updateRange = {
+            offset: updateStartByte,
+            count: updateByteLength
+        };
+        positionAttribute.needsUpdate = true;
+
+        colorAttribute.updateRange = {
+            offset: updateStartByte,
+            count: updateByteLength
+        };
+        colorAttribute.needsUpdate = true;
+
+        // Update geometry metadata
+        pointCloudGeometry.setDrawRange( 0, currentTotalPoints );
+        pointCloudGeometry.computeBoundingSphere();
 
     }, [ pointCloudGeometry ] );
 
@@ -295,7 +307,7 @@ const LidarSensor = ( {
         const frameInfo = pointBuffer.current.endFrame();
         if ( frameInfo.totalPointsSinceLastRead > 0 )
         {
-            updateVisualization();
+            updateVisualizationIncremental();
             pointBuffer.current.markVisualizationRead();
         }
 
