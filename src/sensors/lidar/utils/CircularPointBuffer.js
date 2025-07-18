@@ -13,6 +13,12 @@ export class CircularPointBuffer {
     this.buffer = new Float32Array(this.bufferLength);
     this.headIndex = 0;
     this.size = 0;
+
+    
+    this.lastReadIndex = 0; // Last position read by visualization
+    this.addedSinceLastRead = 0; // Points added since last visualization read
+    this.frameAdditionCount = 0; // Points added in current frame
+    this.totalFrames = 0; // Total frames processed
   }
 
   add(point) {
