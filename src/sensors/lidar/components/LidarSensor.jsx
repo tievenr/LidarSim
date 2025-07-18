@@ -146,6 +146,34 @@ const LidarSensor = ( {
         pointCloudGeometry.setDrawRange( 0, pointCount );
     }, [ pointCloudGeometry ] );
 
+    //Incremental visualization update function
+    const updateVisualizationIncremental = useCallback( () =>
+    {
+        if ( !pointCloudGeometry ) return;
+
+        //Extract only new points since last visualization read
+        const newPointsData = pointBuffer.current.getNewPointsTypedArray();
+        const newPointCount = newPointsData.length / 4;
+
+        //Early exit if no new points
+        if ( newPointCount === 0 )
+        {
+            return;
+        }
+
+        const buffer = pointBuffer.current;
+        const currentTotalPoints = buffer.getCurrentSize();
+
+        //Calculate where to append new points in GPU buffers
+        const appendStartIndex = currentTotalPoints - newPointCount;
+
+        console.log( `Incremental update: ${ newPointCount } new points, appending at index ${ appendStartIndex }` );
+
+        // TODO: Add point processing logic in next step
+        // TODO: Add GPU buffer update logic in next step
+
+    }, [ pointCloudGeometry ] );
+
     useEffect( () =>
     {
         const frameRate = lidarConfig.scanRate / ( 2 * Math.PI );
