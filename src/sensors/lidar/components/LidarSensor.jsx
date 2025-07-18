@@ -175,6 +175,87 @@ const LidarSensor = ( {
             console.log( "newPointCount:", newPointCount );
             console.log( "buffer size:", pointBuffer.current.getCurrentSize() );
             console.log( "max points:", pointBuffer.current.getMaxSize() );
+            const totalMaxPoints = pointBuffer.current.getMaxSize(); 
+            const overwrittenCount = frameInfo.overwrittenRange.count; // Number of points overwritten at buffer start
+
+            // --- PART A: Update the overwritten segment at the BEGINNING of the GPU buffer ---
+            // These points are the first 'overwrittenCount' points in the 'newPointsData' array.
+            for ( let i = 0; i < overwrittenCount; i++ )
+            {
+                const sourceIndex = i * 4; // Source index in newPointsData (x,y,z,intensity)
+                const gpuIndex = ( frameInfo.overwrittenRange.start + i ) * 3; // GPU index (x,y,z or r,g,b).
+
+                // Copy position (x, y, z)
+                positionAttribute.array[ gpuIndex ] = newPointsData[ sourceIndex ];
+                positionAttribute.array[ gpuIndex + 1 ] = newPointsData[ sourceIndex + 1 ];
+                positionAttribute.array[ gpuIndex + 2 ] = newPointsData[ sourceIndex + 2 ];
+
+                // Copy intensity to color (r, g, b)
+                const intensity = newPointsData[ sourceIndex + 3 ];
+                colorAttribute.array[ gpuIndex ] = intensity;
+                colorAttribute.array[ gpuIndex + 1 ] = intensity;
+                colorAttribute.array[ gpuIndex + 2 ] = intensity;
+            }
+
+            // Apply updateRange for the overwritten segment
+            // This tells Three.js to re-upload only this specific part of the buffer.
+            positionAttribute.updateRange = {
+                offset: frameInfo.overwrittenRange.start * 3, // Start at GPU component index 0
+                count: overwrittenCount * 3                  
+            };
+            positionAttribute.needsUpdate = true; 
+
+            colorAttribute.updateRange = {
+                offset: frameInfo.overwrittenRange.start * 3, // Start at GPU component index 0
+                count: overwrittenCount * 3
+            };
+            colorAttribute.needsUpdate = true; 
+
+
+
+            // --- PART B: Update the appended segment at the END of the GPU buffer ---
+            // These points are the REMAINDER of 'newPointsData' after the overwritten points.
+            // They fill the "gap" from the lastReadIndex up to MAX_POINTS.
+            const totalPointsInNewData = newPointCount; // Total points received from getNewPointsTypedArray()
+            const appendedCount = totalPointsInNewData - overwrittenCount; // Points that were truly appended to the end of the buffer
+            const appendedStartIndexGPU = frameInfo.totalPointsSinceLastRead - appendedCount; 
+
+            const appendedSegmentSourceStartIndex = overwrittenCount; // Where this segment starts in newPointsData
+            const appendedSegmentGPUStartIndex = totalMaxPoints - appendedCount; // Where this segment starts in the GPU array
+
+            for ( let i = 0; i < appendedCount; i++ )
+            {
+                const sourceIndex = ( appendedSegmentSourceStartIndex + i ) * 4;
+                const gpuIndex = ( appendedSegmentGPUStartIndex + i ) * 3;
+
+                // Copy position (x, y, z)
+                positionAttribute.array[ gpuIndex ] = newPointsData[ sourceIndex ];
+                positionAttribute.array[ gpuIndex + 1 ] = newPointsData[ sourceIndex + 1 ];
+                positionAttribute.array[ gpuIndex + 2 ] = newPointsData[ sourceIndex + 2 ];
+
+                // Copy intensity to color (r, g, b)
+                const intensity = newPointsData[ sourceIndex + 3 ];
+                colorAttribute.array[ gpuIndex ] = intensity;
+                colorAttribute.array[ gpuIndex + 1 ] = intensity;
+                colorAttribute.array[ gpuIndex + 2 ] = intensity;
+            }
+
+            // Apply updateRange for the appended segment
+            positionAttribute.updateRange = {
+                offset: appendedSegmentGPUStartIndex * 3,
+                count: appendedCount * 3
+            };
+            positionAttribute.needsUpdate = true; 
+
+            colorAttribute.updateRange = {
+                offset: appendedSegmentGPUStartIndex * 3,
+                count: appendedCount * 3
+            };
+            colorAttribute.needsUpdate = true; 
+
+            pointCloudGeometry.setDrawRange( 0, totalMaxPoints );
+
+        
         }
 
         pointCloudGeometry.computeBoundingSphere();
