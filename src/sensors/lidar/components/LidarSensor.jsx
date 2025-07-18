@@ -107,7 +107,7 @@ const LidarSensor = ( {
     }, [] );
 
     //Incremental visualization - process only new points
-    const updateVisualizationIncremental = useCallback( () =>
+    const updateVisualizationIncremental = useCallback( ( frameInfo ) =>
     {
         if ( !pointCloudGeometry ) return;
 
@@ -117,52 +117,69 @@ const LidarSensor = ( {
 
         if ( newPointCount === 0 ) return;
 
-        const buffer = pointBuffer.current;
-        const currentTotalPoints = buffer.getCurrentSize();
-        const appendStartIndex = currentTotalPoints - newPointCount;
-
         const positionAttribute = pointCloudGeometry.attributes.position;
         const colorAttribute = pointCloudGeometry.attributes.color;
 
-        // Process only new points and append to GPU buffers
-        for ( let i = 0; i < newPointCount; i++ )
+        // SCENARIO BRANCHING: Check if the buffer has wrapped around
+        if ( !frameInfo.hasWraparound ) 
         {
-            const sourceIndex = i * 4;
-            const gpuIndex = ( appendStartIndex + i ) * 3;
+            const buffer = pointBuffer.current;
+            const currentTotalPoints = buffer.getCurrentSize();
+            const appendStartIndex = currentTotalPoints - newPointCount;
 
-            // Copy position (x, y, z)
-            positionAttribute.array[ gpuIndex ] = newPointsData[ sourceIndex ];
-            positionAttribute.array[ gpuIndex + 1 ] = newPointsData[ sourceIndex + 1 ];
-            positionAttribute.array[ gpuIndex + 2 ] = newPointsData[ sourceIndex + 2 ];
+            // Debug logging every 100 frames
+            if ( frameCounter.current % 100 === 0 )
+            {
+                console.log( `Frame ${ frameCounter.current }: Simple append - ${ currentTotalPoints } total points, adding ${ newPointCount }` );
+            }
 
-            // Copy intensity to color (r, g, b)
-            const intensity = newPointsData[ sourceIndex + 3 ];
-            colorAttribute.array[ gpuIndex ] = intensity;
-            colorAttribute.array[ gpuIndex + 1 ] = intensity;
-            colorAttribute.array[ gpuIndex + 2 ] = intensity;
+            // Process only new points and append to GPU buffers
+            for ( let i = 0; i < newPointCount; i++ )
+            {
+                const sourceIndex = i * 4;
+                const gpuIndex = ( appendStartIndex + i ) * 3;
+
+                // Copy position (x, y, z)
+                positionAttribute.array[ gpuIndex ] = newPointsData[ sourceIndex ];
+                positionAttribute.array[ gpuIndex + 1 ] = newPointsData[ sourceIndex + 1 ];
+                positionAttribute.array[ gpuIndex + 2 ] = newPointsData[ sourceIndex + 2 ];
+
+                // Copy intensity to color (r, g, b)
+                const intensity = newPointsData[ sourceIndex + 3 ];
+                colorAttribute.array[ gpuIndex ] = intensity;
+                colorAttribute.array[ gpuIndex + 1 ] = intensity;
+                colorAttribute.array[ gpuIndex + 2 ] = intensity;
+            }
+
+            // Surgical GPU buffer updates - only upload new data
+            positionAttribute.updateRange = {
+                offset: appendStartIndex * 3,
+                count: newPointCount * 3
+            };
+            positionAttribute.needsUpdate = true;
+
+            colorAttribute.updateRange = {
+                offset: appendStartIndex * 3,
+                count: newPointCount * 3
+            };
+            colorAttribute.needsUpdate = true;
+
+            // Update geometry metadata
+            pointCloudGeometry.setDrawRange( 0, currentTotalPoints );
+        }
+        else // Complex wraparound case
+        {
+            // Debug logging to understand what's happening
+            console.log( "Wraparound detected! Need to handle dual updates." );
+            console.log( "frameInfo:", frameInfo );
+            console.log( "newPointCount:", newPointCount );
+            console.log( "buffer size:", pointBuffer.current.getCurrentSize() );
+            console.log( "max points:", pointBuffer.current.getMaxSize() );
         }
 
-        // Surgical GPU buffer updates - only upload new data
-        const updateStartByte = appendStartIndex * 3;
-        const updateByteLength = newPointCount * 3;
-
-        positionAttribute.updateRange = {
-            offset: updateStartByte,
-            count: updateByteLength
-        };
-        positionAttribute.needsUpdate = true;
-
-        colorAttribute.updateRange = {
-            offset: updateStartByte,
-            count: updateByteLength
-        };
-        colorAttribute.needsUpdate = true;
-
-        // Update geometry metadata
-        pointCloudGeometry.setDrawRange( 0, currentTotalPoints );
         pointCloudGeometry.computeBoundingSphere();
 
-    }, [ pointCloudGeometry ] );
+    }, [ pointCloudGeometry, pointBuffer ] );
 
     useEffect( () =>
     {
@@ -262,11 +279,11 @@ const LidarSensor = ( {
         }
 
         //End scanning frame and conditionally update visualization
+
         const frameInfo = pointBuffer.current.endFrame();
-        if ( frameInfo.totalPointsSinceLastRead > 0 )
+        if ( frameInfo.totalPointsSinceLastRead > 0 || frameInfo.hasWraparound ) // Trigger update if new points OR a wraparound occurred
         {
-            updateVisualizationIncremental();
-            pointBuffer.current.markVisualizationRead();
+            updateVisualizationIncremental( frameInfo );
         }
 
         // Add points to frame manager if capturing
