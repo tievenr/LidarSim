@@ -108,10 +108,19 @@ export class CircularPointBuffer {
   }
 
   endFrame() {
+    const overwriteInfo = this.getOverwrittenPositions();
+
     return {
       pointsInFrame: this.frameAdditionCount,
       totalPointsSinceLastRead: this.addedSinceLastRead,
       frameNumber: this.totalFrames,
+      hasWraparound: overwriteInfo.hasOverwrites,
+      overwrittenRange: overwriteInfo.hasOverwrites
+        ? {
+            start: overwriteInfo.startIndex,
+            count: overwriteInfo.count,
+          }
+        : null,
     };
   }
 
@@ -181,7 +190,7 @@ export class CircularPointBuffer {
 
     return {
       hasOverwrites: true,
-      startIndex: overwriteStart, 
+      startIndex: overwriteStart,
       count: overwriteCount, // Points from 0 to current headIndex
     };
   }
