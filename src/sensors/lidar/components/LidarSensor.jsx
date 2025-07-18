@@ -121,8 +121,6 @@ const LidarSensor = ( {
         const currentTotalPoints = buffer.getCurrentSize();
         const appendStartIndex = currentTotalPoints - newPointCount;
 
-        console.log( `Incremental update: ${ newPointCount } new points, appending at index ${ appendStartIndex }` );
-
         const positionAttribute = pointCloudGeometry.attributes.position;
         const colorAttribute = pointCloudGeometry.attributes.color;
 
