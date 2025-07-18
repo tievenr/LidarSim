@@ -127,12 +127,6 @@ const LidarSensor = ( {
             const currentTotalPoints = buffer.getCurrentSize();
             const appendStartIndex = currentTotalPoints - newPointCount;
 
-            // Debug logging every 100 frames
-            if ( frameCounter.current % 100 === 0 )
-            {
-                console.log( `Frame ${ frameCounter.current }: Simple append - ${ currentTotalPoints } total points, adding ${ newPointCount }` );
-            }
-
             // Process only new points and append to GPU buffers
             for ( let i = 0; i < newPointCount; i++ )
             {
@@ -169,12 +163,6 @@ const LidarSensor = ( {
         }
         else // Complex wraparound case
         {
-            // Debug logging to understand what's happening
-            console.log( "Wraparound detected! Need to handle dual updates." );
-            console.log( "frameInfo:", frameInfo );
-            console.log( "newPointCount:", newPointCount );
-            console.log( "buffer size:", pointBuffer.current.getCurrentSize() );
-            console.log( "max points:", pointBuffer.current.getMaxSize() );
             const totalMaxPoints = pointBuffer.current.getMaxSize();
             const overwrittenCount = frameInfo.overwrittenRange.count; // Number of points overwritten at buffer start
 
@@ -219,12 +207,6 @@ const LidarSensor = ( {
             const totalPointsInNewData = newPointCount; // Total points received from getNewPointsTypedArray()
             const appendedCount = totalPointsInNewData - overwrittenCount; // Points that were truly appended to the end of the buffer
             const appendedStartIndexGPU = frameInfo.totalPointsSinceLastRead - appendedCount;
-
-            // --- DEBUG LOGS TO VERIFY DUAL SEGMENT LOGIC ---
-            console.log( `  Points overwritten (Part A): ${ overwrittenCount }` );
-            console.log( `  Points appended (Part B): ${ appendedCount }` );
-            console.log( `  Total (A+B) = ${ overwrittenCount + appendedCount }, should match newPointCount = ${ newPointCount }` );
-            // --- END DEBUG LOGS ---
 
             const appendedSegmentSourceStartIndex = overwrittenCount; // Where this segment starts in newPointsData
             const appendedSegmentGPUStartIndex = totalMaxPoints - appendedCount; // Where this segment starts in the GPU array
