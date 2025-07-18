@@ -102,4 +102,8 @@ export class CircularPointBuffer {
   getMaxSize() {
     return this.maxPoints;
   }
+  startFrame() {
+    this.frameAdditionCount = 0; // Reset point counter for new scanning frame
+    this.totalFrames++; // Increment total frame counter
+  }
 }
