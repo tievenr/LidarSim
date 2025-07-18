@@ -169,4 +169,20 @@ export class CircularPointBuffer {
     return this.size >= this.maxPoints && this.headIndex <= this.lastReadIndex;
     //returns true if the buffer has wrapped around since the last read
   }
+
+  getOverwrittenPositions() {
+    if (!this.hasWrappedSinceLastRead()) {
+      return { hasOverwrites: false };
+    }
+
+    // When wraparound occurs, new data overwrites from index 0
+    const overwriteStart = 0;
+    const overwriteCount = this.headIndex / this.componentsPerPoint;
+
+    return {
+      hasOverwrites: true,
+      startIndex: overwriteStart, 
+      count: overwriteCount, // Points from 0 to current headIndex
+    };
+  }
 }
