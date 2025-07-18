@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { applyVoxelFilter } from "../utils/VoxelFilter";
 import { IntensityCalculator } from "../utils/IntensityCalculator";
 import { DistanceBasedCulling } from "../utils/DistanceBasedCulling";
 
@@ -50,29 +49,10 @@ export function getSensorPosition(sensorRef) {
   return sensorRef.current.position.clone();
 }
 
-export function collectIntersectableMeshes(
-  scene,
-  sensorRef,
-  sensorPosition = null,
-  enableCulling = false
-) {
-  if (sensorPosition && enableCulling) {
-    const result = collectIntersectableMeshesWithCulling(
-      scene,
-      sensorPosition,
-      enableCulling
-    );
-    return result.meshes.filter((mesh) => mesh !== sensorRef.current);
-  }
-
-  return scene.children.filter((child) => {
-    return child.type === "Mesh" && child !== sensorRef.current;
-  });
-}
-
-export function collectIntersectableMeshesWithCulling(
+function collectIntersectableMeshes(
   scene,
   sensorPosition,
+  sensorRef,
   enableCulling = true,
   cullingOptions = {}
 ) {
@@ -86,7 +66,7 @@ export function collectIntersectableMeshesWithCulling(
 
   const allMeshes = [];
   scene.traverse((child) => {
-    if (child.isMesh && child.visible) {
+    if (child.isMesh && child.visible && child !== sensorRef.current) {
       allMeshes.push(child);
     }
   });
@@ -160,7 +140,8 @@ export function castSingleRay(
   return null;
 }
 
-export function castRaysForFrame(
+// PRIVATE FUNCTION - Ray casting engine
+function castRaysInternal(
   sensorPosition,
   meshesToIntersect,
   scanState,
@@ -221,7 +202,7 @@ export function castRaysForFrame(
   return newPoints;
 }
 
-export function castRaysForFrameWithCulling(
+export function castRaysForFrame(
   sensorPosition,
   scene,
   scanState,
@@ -233,36 +214,22 @@ export function castRaysForFrameWithCulling(
 ) {
   const frameStartTime = performance.now();
 
-  let meshesToIntersect;
-  let cullingStats = null;
-
-  if (enableCulling) {
-    const meshCollection = collectIntersectableMeshesWithCulling(
-      scene,
-      sensorPosition,
-      true,
-      {
-        minRange: lidarConfig.minRange || 0.2,
-        maxRange: lidarConfig.maxRange || 70,
-        bufferDistance: 10,
-      }
-    );
-    meshesToIntersect = meshCollection.meshes.filter(
-      (mesh) => mesh !== sensorRef.current
-    );
-    cullingStats = meshCollection.statistics;
-  } else {
-    meshesToIntersect = collectIntersectableMeshes(
-      scene,
-      sensorRef,
-      null,
-      false
-    );
-  }
-
-  const newPoints = castRaysForFrame(
+  // Always use the smart mesh collection function
+  const meshCollection = collectIntersectableMeshes(
+    scene,
     sensorPosition,
-    meshesToIntersect,
+    sensorRef,
+    enableCulling,
+    {
+      minRange: lidarConfig.minRange || 0.2,
+      maxRange: lidarConfig.maxRange || 70,
+      bufferDistance: 10,
+    }
+  );
+
+  const newPoints = castRaysInternal(
+    sensorPosition,
+    meshCollection.meshes,
     scanState,
     raycaster,
     lidarConfig,
@@ -275,11 +242,11 @@ export function castRaysForFrameWithCulling(
 
   return {
     points: newPoints,
-    cullingStats: cullingStats,
+    cullingStats: meshCollection.statistics,
     frameStats: {
       processingTime: frameProcessingTime,
       pointsGenerated: newPoints.length,
-      meshesProcessed: meshesToIntersect.length,
+      meshesProcessed: meshCollection.meshes.length,
     },
   };
 }

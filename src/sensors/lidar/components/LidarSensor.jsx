@@ -7,15 +7,8 @@ import
     initializeVerticalAngles,
     updateScanAngle,
     getSensorPosition,
-    collectIntersectableMeshes,
     castRaysForFrame,
-    castRaysForFrameWithCulling,
 } from '../logic/ScanningLogic';
-import
-{
-    visualizeScanPattern,
-    clearScanPattern
-} from '../logic/VisualizationLogic';
 import { LidarFrameManager } from '../utils/ExportLogic';
 import { createLidarConfig } from '../config/LidarConfig';
 import { useLidarConfig } from '../context/LidarConfigContext';
@@ -44,12 +37,6 @@ const LidarSensor = ( {
     const frameManager = useRef( null );
     const [ isCapturing, setIsCapturing ] = useState( false );
     const [ frameStats, setFrameStats ] = useState( { frameCount: 0 } );
-    const [ cullingStats, setCullingStats ] = useState( null );
-    const [ performanceStats, setPerformanceStats ] = useState( {
-        lastFrameTime: 0,
-        avgFrameTime: 0,
-        pointsPerSecond: 0
-    } );
 
     const lidarConfig = useMemo( () =>
     {
@@ -119,45 +106,149 @@ const LidarSensor = ( {
         };
     }, [] );
 
-    const updateVisualization = useCallback( () =>
+    //Incremental visualization - process only new points
+    const updateVisualizationIncremental = useCallback( ( frameInfo ) =>
     {
         if ( !pointCloudGeometry ) return;
 
-        const buffer = pointBuffer.current;
-        const pointCount = buffer.getCurrentSize();
+        // Extract only new points since last read
+        const newPointsData = pointBuffer.current.getNewPointsTypedArray();
+        const newPointCount = newPointsData.length / 4;
 
-        if ( pointCount === 0 )
-        {
-            pointCloudGeometry.setDrawRange( 0, 0 );
-            return;
-        }
+        if ( newPointCount === 0 ) return;
 
-        const sourceData = buffer.getPointsAsTypedArray();
         const positionAttribute = pointCloudGeometry.attributes.position;
         const colorAttribute = pointCloudGeometry.attributes.color;
 
-        for ( let i = 0; i < pointCount; i++ )
+        // SCENARIO BRANCHING: Check if the buffer has wrapped around
+        if ( !frameInfo.hasWraparound ) 
         {
-            const sourceIndex = i * 4;
-            const destIndex = i * 3;
+            const buffer = pointBuffer.current;
+            const currentTotalPoints = buffer.getCurrentSize();
+            const appendStartIndex = currentTotalPoints - newPointCount;
 
-            // Copy position (x, y, z)
-            positionAttribute.array[ destIndex ] = sourceData[ sourceIndex ];
-            positionAttribute.array[ destIndex + 1 ] = sourceData[ sourceIndex + 1 ];
-            positionAttribute.array[ destIndex + 2 ] = sourceData[ sourceIndex + 2 ];
+            // Process only new points and append to GPU buffers
+            for ( let i = 0; i < newPointCount; i++ )
+            {
+                const sourceIndex = i * 4;
+                const gpuIndex = ( appendStartIndex + i ) * 3;
 
-            // Copy intensity to color (r, g, b)
-            const intensity = sourceData[ sourceIndex + 3 ];
-            colorAttribute.array[ destIndex ] = intensity;
-            colorAttribute.array[ destIndex + 1 ] = intensity;
-            colorAttribute.array[ destIndex + 2 ] = intensity;
+                // Copy position (x, y, z)
+                positionAttribute.array[ gpuIndex ] = newPointsData[ sourceIndex ];
+                positionAttribute.array[ gpuIndex + 1 ] = newPointsData[ sourceIndex + 1 ];
+                positionAttribute.array[ gpuIndex + 2 ] = newPointsData[ sourceIndex + 2 ];
+
+                // Copy intensity to color (r, g, b)
+                const intensity = newPointsData[ sourceIndex + 3 ];
+                colorAttribute.array[ gpuIndex ] = intensity;
+                colorAttribute.array[ gpuIndex + 1 ] = intensity;
+                colorAttribute.array[ gpuIndex + 2 ] = intensity;
+            }
+
+            // Surgical GPU buffer updates - only upload new data
+            positionAttribute.updateRange = {
+                offset: appendStartIndex * 3,
+                count: newPointCount * 3
+            };
+            positionAttribute.needsUpdate = true;
+
+            colorAttribute.updateRange = {
+                offset: appendStartIndex * 3,
+                count: newPointCount * 3
+            };
+            colorAttribute.needsUpdate = true;
+
+            // Update geometry metadata
+            pointCloudGeometry.setDrawRange( 0, currentTotalPoints );
+        }
+        else // Complex wraparound case
+        {
+            const totalMaxPoints = pointBuffer.current.getMaxSize();
+            const overwrittenCount = frameInfo.overwrittenRange.count; // Number of points overwritten at buffer start
+
+            // --- PART A: Update the overwritten segment at the BEGINNING of the GPU buffer ---
+            // These points are the first 'overwrittenCount' points in the 'newPointsData' array.
+            for ( let i = 0; i < overwrittenCount; i++ )
+            {
+                const sourceIndex = i * 4; // Source index in newPointsData (x,y,z,intensity)
+                const gpuIndex = ( frameInfo.overwrittenRange.start + i ) * 3; // GPU index (x,y,z or r,g,b).
+
+                // Copy position (x, y, z)
+                positionAttribute.array[ gpuIndex ] = newPointsData[ sourceIndex ];
+                positionAttribute.array[ gpuIndex + 1 ] = newPointsData[ sourceIndex + 1 ];
+                positionAttribute.array[ gpuIndex + 2 ] = newPointsData[ sourceIndex + 2 ];
+
+                // Copy intensity to color (r, g, b)
+                const intensity = newPointsData[ sourceIndex + 3 ];
+                colorAttribute.array[ gpuIndex ] = intensity;
+                colorAttribute.array[ gpuIndex + 1 ] = intensity;
+                colorAttribute.array[ gpuIndex + 2 ] = intensity;
+            }
+
+            // Apply updateRange for the overwritten segment
+            // This tells Three.js to re-upload only this specific part of the buffer.
+            positionAttribute.updateRange = {
+                offset: frameInfo.overwrittenRange.start * 3, // Start at GPU component index 0
+                count: overwrittenCount * 3
+            };
+            positionAttribute.needsUpdate = true;
+
+            colorAttribute.updateRange = {
+                offset: frameInfo.overwrittenRange.start * 3, // Start at GPU component index 0
+                count: overwrittenCount * 3
+            };
+            colorAttribute.needsUpdate = true;
+
+
+
+            // --- PART B: Update the appended segment at the END of the GPU buffer ---
+            // These points are the REMAINDER of 'newPointsData' after the overwritten points.
+            // They fill the "gap" from the lastReadIndex up to MAX_POINTS.
+            const totalPointsInNewData = newPointCount; // Total points received from getNewPointsTypedArray()
+            const appendedCount = totalPointsInNewData - overwrittenCount; // Points that were truly appended to the end of the buffer
+            const appendedStartIndexGPU = frameInfo.totalPointsSinceLastRead - appendedCount;
+
+            const appendedSegmentSourceStartIndex = overwrittenCount; // Where this segment starts in newPointsData
+            const appendedSegmentGPUStartIndex = totalMaxPoints - appendedCount; // Where this segment starts in the GPU array
+
+            for ( let i = 0; i < appendedCount; i++ )
+            {
+                const sourceIndex = ( appendedSegmentSourceStartIndex + i ) * 4;
+                const gpuIndex = ( appendedSegmentGPUStartIndex + i ) * 3;
+
+                // Copy position (x, y, z)
+                positionAttribute.array[ gpuIndex ] = newPointsData[ sourceIndex ];
+                positionAttribute.array[ gpuIndex + 1 ] = newPointsData[ sourceIndex + 1 ];
+                positionAttribute.array[ gpuIndex + 2 ] = newPointsData[ sourceIndex + 2 ];
+
+                // Copy intensity to color (r, g, b)
+                const intensity = newPointsData[ sourceIndex + 3 ];
+                colorAttribute.array[ gpuIndex ] = intensity;
+                colorAttribute.array[ gpuIndex + 1 ] = intensity;
+                colorAttribute.array[ gpuIndex + 2 ] = intensity;
+            }
+
+            // Apply updateRange for the appended segment
+            positionAttribute.updateRange = {
+                offset: appendedSegmentGPUStartIndex * 3,
+                count: appendedCount * 3
+            };
+            positionAttribute.needsUpdate = true;
+
+            colorAttribute.updateRange = {
+                offset: appendedSegmentGPUStartIndex * 3,
+                count: appendedCount * 3
+            };
+            colorAttribute.needsUpdate = true;
+
+            pointCloudGeometry.setDrawRange( 0, totalMaxPoints );
+
+
         }
 
-        positionAttribute.needsUpdate = true;
-        colorAttribute.needsUpdate = true;
         pointCloudGeometry.computeBoundingSphere();
-        pointCloudGeometry.setDrawRange( 0, pointCount );
-    }, [ pointCloudGeometry ] );
+
+    }, [ pointCloudGeometry, pointBuffer ] );
 
     useEffect( () =>
     {
@@ -233,8 +324,11 @@ const LidarSensor = ( {
 
         const currentTime = Date.now() - startTime.current;
 
+        //Start new LiDAR scanning frame
+        pointBuffer.current.startFrame();
+
         // Use the new culling-aware scanning function
-        const scanResult = castRaysForFrameWithCulling(
+        const scanResult = castRaysForFrame(
             sensorPosition,
             scene,
             scanState.current,
@@ -247,21 +341,20 @@ const LidarSensor = ( {
 
         const newPoints = scanResult.points;
 
-        // Update statistics
-        setCullingStats( scanResult.cullingStats );
-        setPerformanceStats( prev => ( {
-            lastFrameTime: scanResult.frameStats.processingTime,
-            avgFrameTime: ( prev.avgFrameTime * 0.9 ) + ( scanResult.frameStats.processingTime * 0.1 ),
-            pointsPerSecond: newPoints.length / ( scanResult.frameStats.processingTime / 1000 )
-        } ) );
-
         // Add new points to buffer
         for ( const point of newPoints )
         {
             pointBuffer.current.add( point );
         }
 
-        updateVisualization();
+        //End scanning frame and conditionally update visualization
+
+        const frameInfo = pointBuffer.current.endFrame();
+        if ( frameInfo.totalPointsSinceLastRead > 0 || frameInfo.hasWraparound ) // Trigger update if new points OR a wraparound occurred
+        {
+            updateVisualizationIncremental( frameInfo );
+            pointBuffer.current.markVisualizationRead();
+        }
 
         // Add points to frame manager if capturing
         if ( isCapturing && frameManager.current )
