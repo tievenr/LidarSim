@@ -220,6 +220,9 @@ const LidarSensor = ( {
 
         const currentTime = Date.now() - startTime.current;
 
+        //Start new LiDAR scanning frame
+        pointBuffer.current.startFrame();
+
         // Use the new culling-aware scanning function
         const scanResult = castRaysForFrame(
             sensorPosition,
@@ -240,7 +243,13 @@ const LidarSensor = ( {
             pointBuffer.current.add( point );
         }
 
-        updateVisualization();
+        //End scanning frame and conditionally update visualization
+        const frameInfo = pointBuffer.current.endFrame();
+        if ( frameInfo.totalPointsSinceLastRead > 0 )
+        {
+            updateVisualization();
+            pointBuffer.current.markVisualizationRead();
+        }
 
         // Add points to frame manager if capturing
         if ( isCapturing && frameManager.current )
