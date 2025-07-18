@@ -106,4 +106,17 @@ export class CircularPointBuffer {
     this.frameAdditionCount = 0; // Reset point counter for new scanning frame
     this.totalFrames++; // Increment total frame counter
   }
+
+  endFrame() {
+    return {
+      pointsInFrame: this.frameAdditionCount,
+      totalPointsSinceLastRead: this.addedSinceLastRead,
+      frameNumber: this.totalFrames,
+    };
+  }
+
+  markVisualizationRead() {
+    this.lastReadIndex = this.headIndex; // Update last read position to current buffer head
+    this.addedSinceLastRead = 0; // Reset counter - visualization is now up-to-date
+  }
 }
