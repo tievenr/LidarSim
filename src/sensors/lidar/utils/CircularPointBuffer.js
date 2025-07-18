@@ -115,6 +115,51 @@ export class CircularPointBuffer {
     };
   }
 
+  getNewPointsTypedArray() {
+    // Early return if no new points to extract
+    if (this.addedSinceLastRead === 0) {
+      return new Float32Array(0);
+    }
+
+    // Calculate total data size needed
+    const newPointsCount = this.addedSinceLastRead;
+    const totalComponents = newPointsCount * this.componentsPerPoint;
+    const resultBuffer = new Float32Array(totalComponents);
+
+    // Handle two scenarios based on buffer state
+    if (this.size < this.maxPoints) {
+      // SCENARIO 1: Buffer not full yet - simple linear extraction
+      const startIndex = this.lastReadIndex;
+      const endIndex = this.headIndex;
+      const sourceData = this.buffer.subarray(startIndex, endIndex);
+      resultBuffer.set(sourceData, 0);
+    } else {
+      // SCENARIO 2: Buffer is full - handle circular wraparound
+      const readStartIndex = this.lastReadIndex;
+      const currentHeadIndex = this.headIndex;
+
+      if (readStartIndex <= currentHeadIndex) {
+        // Case 2A: No wraparound - new points are linear
+        const sourceData = this.buffer.subarray(
+          readStartIndex,
+          currentHeadIndex
+        );
+        resultBuffer.set(sourceData, 0);
+      } else {
+        // Case 2B: Wraparound occurred - new points are in two segments  
+        // First segment: from readStartIndex to end of buffer
+        const firstSegment = this.buffer.subarray(readStartIndex);
+        resultBuffer.set(firstSegment, 0);
+
+        // Second segment: from start of buffer to currentHeadIndex
+        const secondSegment = this.buffer.subarray(0, currentHeadIndex);
+        resultBuffer.set(secondSegment, firstSegment.length);
+      }
+    }
+
+    return resultBuffer;
+  }
+
   markVisualizationRead() {
     this.lastReadIndex = this.headIndex; // Update last read position to current buffer head
     this.addedSinceLastRead = 0; // Reset counter - visualization is now up-to-date
