@@ -146,7 +146,7 @@ export class CircularPointBuffer {
         );
         resultBuffer.set(sourceData, 0);
       } else {
-        // Case 2B: Wraparound occurred - new points are in two segments  
+        // Case 2B: Wraparound occurred - new points are in two segments
         // First segment: from readStartIndex to end of buffer
         const firstSegment = this.buffer.subarray(readStartIndex);
         resultBuffer.set(firstSegment, 0);
@@ -163,5 +163,10 @@ export class CircularPointBuffer {
   markVisualizationRead() {
     this.lastReadIndex = this.headIndex; // Update last read position to current buffer head
     this.addedSinceLastRead = 0; // Reset counter - visualization is now up-to-date
+  }
+
+  hasWrappedSinceLastRead() {
+    return this.size >= this.maxPoints && this.headIndex <= this.lastReadIndex;
+    //returns true if the buffer has wrapped around since the last read
   }
 }
