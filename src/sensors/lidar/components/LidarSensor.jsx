@@ -284,6 +284,7 @@ const LidarSensor = ( {
         if ( frameInfo.totalPointsSinceLastRead > 0 || frameInfo.hasWraparound ) // Trigger update if new points OR a wraparound occurred
         {
             updateVisualizationIncremental( frameInfo );
+            pointBuffer.current.markVisualizationRead();
         }
 
         // Add points to frame manager if capturing
