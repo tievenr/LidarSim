@@ -168,8 +168,28 @@ const LidarSensor = ( {
         const appendStartIndex = currentTotalPoints - newPointCount;
 
         console.log( `Incremental update: ${ newPointCount } new points, appending at index ${ appendStartIndex }` );
+ 
+        const positionAttribute = pointCloudGeometry.attributes.position;
+        const colorAttribute = pointCloudGeometry.attributes.color;
 
-        // TODO: Add point processing logic in next step
+        //Process only new points and append to GPU buffers
+        for ( let i = 0; i < newPointCount; i++ )
+        {
+            const sourceIndex = i * 4; // Index in new points data
+            const gpuIndex = ( appendStartIndex + i ) * 3; // Index in GPU buffer
+
+            // Copy position (x, y, z)
+            positionAttribute.array[ gpuIndex ] = newPointsData[ sourceIndex ];
+            positionAttribute.array[ gpuIndex + 1 ] = newPointsData[ sourceIndex + 1 ];
+            positionAttribute.array[ gpuIndex + 2 ] = newPointsData[ sourceIndex + 2 ];
+
+            // Copy intensity to color (r, g, b)
+            const intensity = newPointsData[ sourceIndex + 3 ];
+            colorAttribute.array[ gpuIndex ] = intensity;
+            colorAttribute.array[ gpuIndex + 1 ] = intensity;
+            colorAttribute.array[ gpuIndex + 2 ] = intensity;
+        }
+
         // TODO: Add GPU buffer update logic in next step
 
     }, [ pointCloudGeometry ] );
