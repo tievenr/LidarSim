@@ -175,7 +175,7 @@ const LidarSensor = ( {
             console.log( "newPointCount:", newPointCount );
             console.log( "buffer size:", pointBuffer.current.getCurrentSize() );
             console.log( "max points:", pointBuffer.current.getMaxSize() );
-            const totalMaxPoints = pointBuffer.current.getMaxSize(); 
+            const totalMaxPoints = pointBuffer.current.getMaxSize();
             const overwrittenCount = frameInfo.overwrittenRange.count; // Number of points overwritten at buffer start
 
             // --- PART A: Update the overwritten segment at the BEGINNING of the GPU buffer ---
@@ -201,15 +201,15 @@ const LidarSensor = ( {
             // This tells Three.js to re-upload only this specific part of the buffer.
             positionAttribute.updateRange = {
                 offset: frameInfo.overwrittenRange.start * 3, // Start at GPU component index 0
-                count: overwrittenCount * 3                  
+                count: overwrittenCount * 3
             };
-            positionAttribute.needsUpdate = true; 
+            positionAttribute.needsUpdate = true;
 
             colorAttribute.updateRange = {
                 offset: frameInfo.overwrittenRange.start * 3, // Start at GPU component index 0
                 count: overwrittenCount * 3
             };
-            colorAttribute.needsUpdate = true; 
+            colorAttribute.needsUpdate = true;
 
 
 
@@ -218,7 +218,13 @@ const LidarSensor = ( {
             // They fill the "gap" from the lastReadIndex up to MAX_POINTS.
             const totalPointsInNewData = newPointCount; // Total points received from getNewPointsTypedArray()
             const appendedCount = totalPointsInNewData - overwrittenCount; // Points that were truly appended to the end of the buffer
-            const appendedStartIndexGPU = frameInfo.totalPointsSinceLastRead - appendedCount; 
+            const appendedStartIndexGPU = frameInfo.totalPointsSinceLastRead - appendedCount;
+
+            // --- DEBUG LOGS TO VERIFY DUAL SEGMENT LOGIC ---
+            console.log( `  Points overwritten (Part A): ${ overwrittenCount }` );
+            console.log( `  Points appended (Part B): ${ appendedCount }` );
+            console.log( `  Total (A+B) = ${ overwrittenCount + appendedCount }, should match newPointCount = ${ newPointCount }` );
+            // --- END DEBUG LOGS ---
 
             const appendedSegmentSourceStartIndex = overwrittenCount; // Where this segment starts in newPointsData
             const appendedSegmentGPUStartIndex = totalMaxPoints - appendedCount; // Where this segment starts in the GPU array
@@ -245,17 +251,17 @@ const LidarSensor = ( {
                 offset: appendedSegmentGPUStartIndex * 3,
                 count: appendedCount * 3
             };
-            positionAttribute.needsUpdate = true; 
+            positionAttribute.needsUpdate = true;
 
             colorAttribute.updateRange = {
                 offset: appendedSegmentGPUStartIndex * 3,
                 count: appendedCount * 3
             };
-            colorAttribute.needsUpdate = true; 
+            colorAttribute.needsUpdate = true;
 
             pointCloudGeometry.setDrawRange( 0, totalMaxPoints );
 
-        
+
         }
 
         pointCloudGeometry.computeBoundingSphere();
