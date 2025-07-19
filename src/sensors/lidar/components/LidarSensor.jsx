@@ -161,17 +161,16 @@ const LidarSensor = ( {
             // Update geometry metadata
             pointCloudGeometry.setDrawRange( 0, currentTotalPoints );
         }
-        else // Complex wraparound case
+        else
         {
             const totalMaxPoints = pointBuffer.current.getMaxSize();
-            const overwrittenCount = frameInfo.overwrittenRange.count; // Number of points overwritten at buffer start
+            const overwrittenCount = frameInfo.overwrittenRange.count;
 
             // --- PART A: Update the overwritten segment at the BEGINNING of the GPU buffer ---
-            // These points are the first 'overwrittenCount' points in the 'newPointsData' array.
             for ( let i = 0; i < overwrittenCount; i++ )
             {
-                const sourceIndex = i * 4; // Source index in newPointsData (x,y,z,intensity)
-                const gpuIndex = ( frameInfo.overwrittenRange.start + i ) * 3; // GPU index (x,y,z or r,g,b).
+                const sourceIndex = i * 4;
+                const gpuIndex = ( frameInfo.overwrittenRange.start + i ) * 3;
 
                 // Copy position (x, y, z)
                 positionAttribute.array[ gpuIndex ] = newPointsData[ sourceIndex ];
@@ -186,15 +185,14 @@ const LidarSensor = ( {
             }
 
             // Apply updateRange for the overwritten segment
-            // This tells Three.js to re-upload only this specific part of the buffer.
             positionAttribute.updateRange = {
-                offset: frameInfo.overwrittenRange.start * 3, // Start at GPU component index 0
+                offset: frameInfo.overwrittenRange.start * 3,
                 count: overwrittenCount * 3
             };
             positionAttribute.needsUpdate = true;
 
             colorAttribute.updateRange = {
-                offset: frameInfo.overwrittenRange.start * 3, // Start at GPU component index 0
+                offset: frameInfo.overwrittenRange.start * 3,
                 count: overwrittenCount * 3
             };
             colorAttribute.needsUpdate = true;
@@ -202,14 +200,11 @@ const LidarSensor = ( {
 
 
             // --- PART B: Update the appended segment at the END of the GPU buffer ---
-            // These points are the REMAINDER of 'newPointsData' after the overwritten points.
-            // They fill the "gap" from the lastReadIndex up to MAX_POINTS.
-            const totalPointsInNewData = newPointCount; // Total points received from getNewPointsTypedArray()
-            const appendedCount = totalPointsInNewData - overwrittenCount; // Points that were truly appended to the end of the buffer
-            const appendedStartIndexGPU = frameInfo.totalPointsSinceLastRead - appendedCount;
+            const totalPointsInNewData = newPointCount;
+            const appendedCount = totalPointsInNewData - overwrittenCount;
 
-            const appendedSegmentSourceStartIndex = overwrittenCount; // Where this segment starts in newPointsData
-            const appendedSegmentGPUStartIndex = totalMaxPoints - appendedCount; // Where this segment starts in the GPU array
+            const appendedSegmentSourceStartIndex = overwrittenCount;
+            const appendedSegmentGPUStartIndex = totalMaxPoints - appendedCount;
 
             for ( let i = 0; i < appendedCount; i++ )
             {
@@ -242,8 +237,6 @@ const LidarSensor = ( {
             colorAttribute.needsUpdate = true;
 
             pointCloudGeometry.setDrawRange( 0, totalMaxPoints );
-
-
         }
 
         pointCloudGeometry.computeBoundingSphere();
@@ -314,7 +307,7 @@ const LidarSensor = ( {
     {
         if ( !sensorRef.current ) return;
 
-        // Throttle updates to 90 FPS max
+        // Throttle updates to 30 FPS
         const now = state.clock.elapsedTime;
         if ( now - lastUpdateTime.current < ( 1 / 30 ) ) return;
         lastUpdateTime.current = now;
@@ -341,7 +334,7 @@ const LidarSensor = ( {
         pointBuffer.current.addBatch( newPoints );
 
         const frameInfo = pointBuffer.current.endFrame();
-        if ( frameInfo.totalPointsSinceLastRead > 0 || frameInfo.hasWraparound ) // Trigger update if new points OR a wraparound occurred
+        if ( frameInfo.totalPointsSinceLastRead > 0 || frameInfo.hasWraparound )
         {
             updateVisualizationIncremental( frameInfo );
             pointBuffer.current.markVisualizationRead();
