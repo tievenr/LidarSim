@@ -341,11 +341,8 @@ const LidarSensor = ( {
 
         const newPoints = scanResult.points;
 
-        // Add new points to buffer
-        for ( const point of newPoints )
-        {
-            pointBuffer.current.add( point );
-        }
+        // Add new points to buffer using the batched method
+        pointBuffer.current.addBatch( newPoints );
 
         //End scanning frame and conditionally update visualization
 
