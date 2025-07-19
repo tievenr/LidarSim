@@ -16,10 +16,11 @@ export class LidarFrameManager {
     this.isCapturing = false;
     this.lastFrameTime = null;
 
-    // The current frame being built. Points are temporarily collected as objects
-    // before being converted to a Float32Array upon finalization.
+    // The current frame being built.
+    // Instead of point objects, we will now store Float32Array segments directly.
     this.currentFrame = {
-      points: [],
+      pointBuffers: [], // Array to store Float32Array segments
+      pointCountAccumulated: 0, // Total points accumulated in current frame
       startTime: 0,
       frameNumber: 0,
     };
@@ -33,9 +34,10 @@ export class LidarFrameManager {
     const now = Date.now();
     this.frameStartTime = now;
     this.lastFrameTime = now;
-    this.frames = [];
+    this.frames = []; // Clear existing frames on new capture
     this.currentFrame = {
-      points: [],
+      pointBuffers: [],
+      pointCountAccumulated: 0,
       startTime: now,
       frameNumber: 0,
     };
@@ -52,15 +54,17 @@ export class LidarFrameManager {
 
   /**
    * Add new points to the current frame
-   * @param {Array} points - Array of point objects from ray casting
+   * @param {Float32Array} newPointsData - Float32Array of point components (x, y, z, intensity)
    */
-  addPointsToFrame(points) {
-    if (!this.isCapturing || !points || points.length === 0) return;
+  addPointsToFrame(newPointsData) {
+    if (!this.isCapturing || !newPointsData || newPointsData.length === 0)
+      return;
 
     const currentTime = Date.now();
 
-    // Add points to the temporary buffer for the current frame
-    this.currentFrame.points.push(...points);
+    // Store the new Float32Array segment and accumulate its point count
+    this.currentFrame.pointBuffers.push(newPointsData);
+    this.currentFrame.pointCountAccumulated += newPointsData.length / 4; // Assuming 4 components per point
 
     const timeSinceLastFrame = currentTime - this.lastFrameTime;
 
@@ -71,9 +75,10 @@ export class LidarFrameManager {
       // Start a new frame
       this.lastFrameTime = currentTime;
       this.currentFrame = {
-        points: [],
+        pointBuffers: [],
+        pointCountAccumulated: 0,
         startTime: currentTime,
-        frameNumber: this.frames.length,
+        frameNumber: this.frames.length, // Frame number based on how many frames are finalized
       };
     }
   }
@@ -84,31 +89,32 @@ export class LidarFrameManager {
    * @private
    */
   _finalizeCurrentFrame() {
-    const pointCount = this.currentFrame.points.length;
-    if (pointCount === 0) {
+    const totalPointsInFrame = this.currentFrame.pointCountAccumulated;
+    if (totalPointsInFrame === 0) {
       return; // Don't save empty frames
     }
 
-    // Convert the array of point objects into a single, interleaved Float32Array
-    const pointsData = new Float32Array(pointCount * 4); // 4 components: x, y, z, intensity
-    for (let i = 0; i < pointCount; i++) {
-      const point = this.currentFrame.points[i];
-      const offset = i * 4;
-      pointsData[offset] = point.x;
-      pointsData[offset + 1] = point.y;
-      pointsData[offset + 2] = point.z;
-      pointsData[offset + 3] = point.intensity;
+    // Combine all Float32Array segments into a single, contiguous Float32Array
+    const finalPointsData = new Float32Array(totalPointsInFrame * 4); // 4 components: x, y, z, intensity
+    let offset = 0;
+    for (const bufferSegment of this.currentFrame.pointBuffers) {
+      finalPointsData.set(bufferSegment, offset);
+      offset += bufferSegment.length;
     }
 
     // Create the final frame object with the typed array and metadata
     const finalFrame = {
-      pointsData,
-      pointCount,
+      pointsData: finalPointsData, // This is now the combined Float32Array
+      pointCount: totalPointsInFrame,
       startTime: this.currentFrame.startTime,
       frameNumber: this.currentFrame.frameNumber,
     };
 
     this.frames.push(finalFrame);
+
+    // Reset current frame buffer for the next collection
+    this.currentFrame.pointBuffers = [];
+    this.currentFrame.pointCountAccumulated = 0;
   }
 
   /**
@@ -117,7 +123,8 @@ export class LidarFrameManager {
   clearFrames() {
     this.frames = [];
     this.currentFrame = {
-      points: [],
+      pointBuffers: [],
+      pointCountAccumulated: 0,
       startTime: 0,
       frameNumber: 0,
     };

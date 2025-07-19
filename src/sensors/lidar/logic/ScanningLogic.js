@@ -128,6 +128,19 @@ export function castSingleRay(
       channelIndex
     );
 
+    // Validate all components are finite numbers
+    if (
+      !Number.isFinite(point.x) ||
+      !Number.isFinite(point.y) ||
+      !Number.isFinite(point.z) ||
+      !Number.isFinite(intensity)
+    ) {
+      console.warn(
+        "Cast ray produced a point with non-finite component. Discarding point."
+      );
+      return null; // Discard invalid point
+    }
+
     return {
       x: point.x,
       y: point.y,
@@ -150,7 +163,12 @@ function castRaysInternal(
   scene,
   currentTime
 ) {
-  const newPoints = [];
+  // NEW: Initialize a Float32Array to directly store components
+  const componentsPerPoint = 4; // X, Y, Z, Intensity
+  const bufferSize = lidarConfig.pointsPerFrame * componentsPerPoint;
+  const newPointsBuffer = new Float32Array(bufferSize);
+  let pointsAddedCount = 0; // Track actual number of valid points added
+
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
 
   for (let i = 0; i < lidarConfig.pointsPerFrame; i++) {
@@ -195,11 +213,17 @@ function castRaysInternal(
     );
 
     if (point) {
-      newPoints.push(point);
+      // If point is valid, directly add its components to the Float32Array
+      const bufferWriteIndex = pointsAddedCount * componentsPerPoint;
+      newPointsBuffer[bufferWriteIndex] = point.x;
+      newPointsBuffer[bufferWriteIndex + 1] = point.y;
+      newPointsBuffer[bufferWriteIndex + 2] = point.z;
+      newPointsBuffer[bufferWriteIndex + 3] = point.intensity;
+      pointsAddedCount++;
     }
   }
-
-  return newPoints;
+  // Return a subarray to get only the valid points that were actually added
+  return newPointsBuffer.subarray(0, pointsAddedCount * componentsPerPoint);
 }
 
 export function castRaysForFrame(
@@ -228,6 +252,7 @@ export function castRaysForFrame(
   );
 
   const newPoints = castRaysInternal(
+    // newPoints will now be a Float32Array
     sensorPosition,
     meshCollection.meshes,
     scanState,
@@ -241,11 +266,11 @@ export function castRaysForFrame(
   const frameProcessingTime = frameEndTime - frameStartTime;
 
   return {
-    points: newPoints,
+    points: newPoints, // This is now a Float32Array
     cullingStats: meshCollection.statistics,
     frameStats: {
       processingTime: frameProcessingTime,
-      pointsGenerated: newPoints.length,
+      pointsGenerated: newPoints.length / 4, // Calculate points based on Float32Array length
       meshesProcessed: meshCollection.meshes.length,
     },
   };

@@ -53,6 +53,77 @@ export class CircularPointBuffer {
     this.frameAdditionCount++; // Track points added in current scanning frame
   }
 
+  addBatch(newPointsData) {
+    if (!newPointsData || newPointsData.length === 0) {
+      return;
+    }
+
+    // Validate input data completeness
+    if (newPointsData.length % this.componentsPerPoint !== 0) {
+      console.warn(
+        `addBatch received data with length ${newPointsData.length} which is not a multiple of ${this.componentsPerPoint}. Some points may be incomplete.`
+      );
+    }
+
+    const numComponentsToAdd = newPointsData.length;
+    const numPointsToAdd = numComponentsToAdd / this.componentsPerPoint;
+
+    // --- DEBUG LOGS AT THE START OF addBatch ---
+    console.log(`[CircularBuffer] addBatch called:`);
+    console.log(
+      `  Incoming components: ${numComponentsToAdd}, points: ${numPointsToAdd}`
+    );
+    console.log(
+      `  Buffer state BEFORE: headIndex=${this.headIndex}, size=${this.size}, addedSinceLastRead=${this.addedSinceLastRead}, frameAdditionCount=${this.frameAdditionCount}`
+    );
+    // --- END DEBUG LOGS ---
+
+    // Update tracking before buffer modification
+    this.addedSinceLastRead += numPointsToAdd;
+    this.frameAdditionCount += numPointsToAdd;
+
+    // Calculate space from head to buffer end
+    const spaceToEnd = this.bufferLength - this.headIndex;
+
+    if (numComponentsToAdd <= spaceToEnd) {
+      // Linear append - entire batch fits
+      console.log(`  Scenario: Linear append (fits to end)`);
+      this.buffer.set(newPointsData, this.headIndex);
+      this.headIndex += numComponentsToAdd;
+    } else {
+      // Wraparound - split batch into two segments
+      console.log(`  Scenario: Wraparound (splits batch)`);
+      const firstSegmentLength = spaceToEnd;
+      this.buffer.set(
+        newPointsData.subarray(0, firstSegmentLength),
+        this.headIndex
+      );
+
+      const secondSegmentLength = numComponentsToAdd - firstSegmentLength;
+      this.buffer.set(
+        newPointsData.subarray(firstSegmentLength, numComponentsToAdd),
+        0
+      );
+
+      this.headIndex = secondSegmentLength;
+    }
+
+    // Update buffer size with cap
+    this.size = Math.min(this.size + numPointsToAdd, this.maxPoints);
+
+    // Handle head wraparound
+    if (this.headIndex >= this.bufferLength) {
+      this.headIndex = 0;
+    }
+
+    // --- DEBUG LOGS AT THE END OF addBatch ---
+    console.log(
+      `  Buffer state AFTER: headIndex=${this.headIndex}, size=${this.size}, addedSinceLastRead=${this.addedSinceLastRead}, frameAdditionCount=${this.frameAdditionCount}`
+    );
+    console.log(`---`); // Separator for readability
+    // --- END DEBUG LOGS ---
+  }
+
   getPointsAsTypedArray() {
     if (this.size === 0) {
       return new Float32Array(0);
