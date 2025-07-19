@@ -324,10 +324,8 @@ const LidarSensor = ( {
 
         const currentTime = Date.now() - startTime.current;
 
-        //Start new LiDAR scanning frame
         pointBuffer.current.startFrame();
 
-        // Use the new culling-aware scanning function
         const scanResult = castRaysForFrame(
             sensorPosition,
             scene,
@@ -340,14 +338,7 @@ const LidarSensor = ( {
         );
 
         const newPoints = scanResult.points;
-
-        // Add new points to buffer
-        for ( const point of newPoints )
-        {
-            pointBuffer.current.add( point );
-        }
-        //pointBuffer.current.addBatch( newPoints );
-        //End scanning frame and conditionally update visualization
+        pointBuffer.current.addBatch( newPoints );
 
         const frameInfo = pointBuffer.current.endFrame();
         if ( frameInfo.totalPointsSinceLastRead > 0 || frameInfo.hasWraparound ) // Trigger update if new points OR a wraparound occurred
