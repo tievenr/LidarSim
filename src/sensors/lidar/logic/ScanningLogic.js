@@ -128,6 +128,19 @@ export function castSingleRay(
       channelIndex
     );
 
+    // Validate all components are finite numbers
+    if (
+      !Number.isFinite(point.x) ||
+      !Number.isFinite(point.y) ||
+      !Number.isFinite(point.z) ||
+      !Number.isFinite(intensity)
+    ) {
+      console.warn(
+        "Cast ray produced a point with non-finite component. Discarding point."
+      );
+      return null; // Discard invalid point
+    }
+
     return {
       x: point.x,
       y: point.y,
