@@ -68,15 +68,6 @@ export class CircularPointBuffer {
     const numComponentsToAdd = newPointsData.length;
     const numPointsToAdd = numComponentsToAdd / this.componentsPerPoint;
 
-    // --- DEBUG LOGS AT THE START OF addBatch ---
-    console.log(`[CircularBuffer] addBatch called:`);
-    console.log(
-      `  Incoming components: ${numComponentsToAdd}, points: ${numPointsToAdd}`
-    );
-    console.log(
-      `  Buffer state BEFORE: headIndex=${this.headIndex}, size=${this.size}, addedSinceLastRead=${this.addedSinceLastRead}, frameAdditionCount=${this.frameAdditionCount}`
-    );
-    // --- END DEBUG LOGS ---
 
     // Update tracking before buffer modification
     this.addedSinceLastRead += numPointsToAdd;
@@ -87,12 +78,10 @@ export class CircularPointBuffer {
 
     if (numComponentsToAdd <= spaceToEnd) {
       // Linear append - entire batch fits
-      console.log(`  Scenario: Linear append (fits to end)`);
       this.buffer.set(newPointsData, this.headIndex);
       this.headIndex += numComponentsToAdd;
     } else {
       // Wraparound - split batch into two segments
-      console.log(`  Scenario: Wraparound (splits batch)`);
       const firstSegmentLength = spaceToEnd;
       this.buffer.set(
         newPointsData.subarray(0, firstSegmentLength),
@@ -116,12 +105,6 @@ export class CircularPointBuffer {
       this.headIndex = 0;
     }
 
-    // --- DEBUG LOGS AT THE END OF addBatch ---
-    console.log(
-      `  Buffer state AFTER: headIndex=${this.headIndex}, size=${this.size}, addedSinceLastRead=${this.addedSinceLastRead}, frameAdditionCount=${this.frameAdditionCount}`
-    );
-    console.log(`---`); // Separator for readability
-    // --- END DEBUG LOGS ---
   }
 
   getPointsAsTypedArray() {

@@ -135,9 +135,6 @@ export function castSingleRay(
       !Number.isFinite(point.z) ||
       !Number.isFinite(intensity)
     ) {
-      console.warn(
-        "Cast ray produced a point with non-finite component. Discarding point."
-      );
       return null; // Discard invalid point
     }
 

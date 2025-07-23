@@ -1,33 +1,49 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
+import * as THREE from 'three';
+import { MeshBVH, acceleratedRaycast } from 'three-mesh-bvh';
 import StaticInstances from './StaticInstances';
 import DynamicInstances from './DynamicInstances';
 import Lighting from './Lighting';
 
-const Environment = React.memo( () => (
-    <>
-        {/* Ground system */}
-        <mesh name="ground" rotation={[ -Math.PI / 2, 0, 0 ]} receiveShadow>
-            <planeGeometry args={[ 800, 800 ]} />
-            <meshLambertMaterial color="#d4f0d4" />
-        </mesh>
+// Patch Three.js raycast once (safe to call multiple times)
+THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
-        <mesh name="road" position={[ 0, 0.01, 0 ]} rotation={[ -Math.PI / 2, 0, 0 ]} receiveShadow>
-            <planeGeometry args={[ 32, 400 ]} />
-            <meshLambertMaterial color="#c0c0c0" />
-        </mesh>
+const Environment = React.memo( () =>
+{
+    const sphereRef = useRef();
+    const groundRef = useRef();
 
-        <mesh name="center-line" position={[ 0, 0.02, 0 ]} rotation={[ -Math.PI / 2, 0, 0 ]}>
-            <planeGeometry args={[ 0.8, 400 ]} />
-            <meshLambertMaterial color="#ffff80" />
-        </mesh>
+    useEffect( () =>
+    {
+        if ( groundRef.current )
+        {
+            groundRef.current.geometry.computeBoundsTree();
+        }
+        // Add more refs here for other static meshes if needed
+    }, [] );
 
-        {/* Static and dynamic instances */}
-        <StaticInstances />
-        <DynamicInstances />
+    return (
+        <>
+            {/* Ground system */}
+            <mesh
+                ref={groundRef}
+                name="ground"
+                rotation={[ -Math.PI / 2, 0, 0 ]}
+                receiveShadow
+            >
+                <planeGeometry args={[ 800, 800 ]} />
+                <meshStandardMaterial color="#d4f0d4" roughness={0.8} metalness={0.1} />
+            </mesh>
 
-        {/* Lighting */}
-        <Lighting />
-    </>
-) );
+
+            {/* Static and dynamic instances */}
+            <StaticInstances />
+            <DynamicInstances />
+
+            {/* Lighting */}
+            <Lighting />
+        </>
+    );
+} );
 
 export default Environment;
