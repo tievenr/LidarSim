@@ -11,7 +11,7 @@ const LidarSimulation = () =>
     return (
         <LidarConfigProvider>
             <div style={{ width: '100vw', height: '100vh' }}>
-                <Canvas camera={{ position: [ 0, 5, 15 ], fov: 50 }}>
+                <Canvas camera={{ position: [ 0, 60, 80 ], fov: 50 }}>
                     <Scene />
                     <OrbitControls
                         // Smooth movement
