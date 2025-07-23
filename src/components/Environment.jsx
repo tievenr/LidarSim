@@ -12,6 +12,7 @@ const Environment = React.memo( () =>
 {
     const groundRef = useRef();
     const roadRef = useRef();
+    const sphereRef = useRef();
 
     useEffect( () =>
     {
@@ -23,7 +24,10 @@ const Environment = React.memo( () =>
         {
             roadRef.current.geometry.computeBoundsTree();
         }
-        // Add more refs here for other static meshes if needed
+        if ( sphereRef.current )
+        {
+            sphereRef.current.geometry.computeBoundsTree();
+        }
     }, [] );
 
     return (
@@ -51,6 +55,25 @@ const Environment = React.memo( () =>
                 <boxGeometry args={[ 32, 0.1, 800 ]} />
                 <meshStandardMaterial color="#c0c0c0" roughness={0.7} metalness={0.2} />
             </mesh>
+            {/* Huge hollow test sphere centered at the lidar, with BVH */}
+            <mesh
+                ref={sphereRef}
+                name="hollow-sphere"
+                position={[ 0, 2, 0 ]}
+                receiveShadow
+                castShadow
+            >
+                <sphereGeometry args={[ 40, 64, 64 ]} />
+                <meshStandardMaterial
+                    color="#ff8888"
+                    roughness={0.4}
+                    metalness={0.2}
+                    transparent
+                    opacity={0.3}
+                    side={THREE.BackSide}
+                />
+            </mesh>
+
 
             {/* Static and dynamic instances */}
             <StaticInstances />
