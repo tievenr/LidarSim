@@ -6,7 +6,7 @@ import { DistanceBasedCulling } from "../utils/DistanceBasedCulling";
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const TWO_PI = Math.PI * 2;
 
-// LIDAR CONFIG-DEPENDENT CONSTANTS (these values are now static based on your clarification)
+// LIDAR CONFIG-DEPENDENT CONSTANTS 
 const STATIC_VERTICAL_FOV_MIN_DEG = -7;
 const STATIC_VERTICAL_FOV_MAX_DEG = 52;
 const STATIC_NUM_CHANNELS = 40;
@@ -21,7 +21,7 @@ const STATIC_VERTICAL_FOV_MIN_RAD = THREE.MathUtils.degToRad(
 const STATIC_NUM_CHANNELS_MINUS_ONE = STATIC_NUM_CHANNELS - 1;
 const STATIC_INV_VERTICAL_RANGE = 1.0 / STATIC_VERTICAL_RANGE;
 
-// PHASE 3: TRIGONOMETRY LOOKUP TABLES
+
 const TRIG_TABLE_SIZE = 4096; // Resolution of the lookup table. Higher = more accurate, more memory.
 const TRIG_FACTOR = TRIG_TABLE_SIZE / TWO_PI; // Factor to map radians to table index
 
@@ -86,7 +86,6 @@ export function initializeVerticalAngles(
     .map((_, i) => -verticalFOV / 2 + (i * verticalFOV) / (numChannels - 1));
 }
 
-// NOTE: This function is no longer called within castRaysInternal
 export function calculateRayDirection(hAngleRad, vAngleRad) {
   return new THREE.Vector3(
     Math.sin(hAngleRad) * Math.cos(vAngleRad),
@@ -181,15 +180,16 @@ export function castSingleRay(
   timestamp,
   raycaster,
   lidarConfig,
-  scene
+  scene,
+  intensityCalculator 
 ) {
   raycaster.set(origin, direction);
   const intersects = raycaster.intersectObjects(meshesToIntersect, true);
 
   if (intersects.length > 0) {
     const point = intersects[0].point;
-    const intensityCalculator = new IntensityCalculator(lidarConfig);
     const intensity = intensityCalculator.calculateIntensity(
+     
       origin,
       point,
       direction,
@@ -234,11 +234,14 @@ function castRaysInternal(
   const newPointsBuffer = new Float32Array(bufferSize);
   let pointsAddedCount = 0; // Track actual number of valid points added
 
-  // PER-FRAME DEPENDENT CONSTANTS (only frameBaseIndex changes per frame)
+  
   const frameBaseIndex = scanState.frameCount * lidarConfig.pointsPerFrame;
 
-  // PHASE 4: OBJECT POOLING - Pre-allocate a single Vector3 for direction and reuse it
-  const rayDirection = new THREE.Vector3(); // Allocate once outside the loop
+
+  const rayDirection = new THREE.Vector3();
+
+
+  const frameIntensityCalculator = new IntensityCalculator(lidarConfig);
 
   for (let i = 0; i < lidarConfig.pointsPerFrame; i++) {
     const baseIndex = frameBaseIndex + i + scanState.patternOffset;
@@ -250,24 +253,26 @@ function castRaysInternal(
         GOLDEN_ANGLE * baseIndex) %
       TWO_PI;
 
+    
     const simpleHash = ((baseIndex * 1664525 + 1013904223) >>> 0) / 4294967296;
     const verticalPos = simpleHash;
+
+   
     const verticalPosAdjusted = verticalPos * Math.sqrt(Math.sqrt(verticalPos));
 
-    // Use STATIC global constants for vertical angle calculation, and eliminate in-loop degToRad
-    const vAngleRad =
-      STATIC_VERTICAL_FOV_MIN_RAD +
-      verticalPosAdjusted * STATIC_VERTICAL_RANGE_RAD;
+   
+    const verticalAngle =
+      STATIC_VERTICAL_FOV_MIN_DEG + verticalPosAdjusted * STATIC_VERTICAL_RANGE;
+    const vAngleRad = THREE.MathUtils.degToRad(verticalAngle);
 
-    // Inlined calculateRayDirection - NOW USE fastSin/fastCos and reuse rayDirection object
+
     const cosV = fastCos(vAngleRad);
     const sinV = fastSin(vAngleRad);
     const cosH = fastCos(hAngleRad);
     const sinH = fastSin(hAngleRad);
+    const direction = rayDirection.set(sinH * cosV, sinV, cosH * cosV); 
 
-    // Reuse the pre-allocated rayDirection object
-    rayDirection.set(sinH * cosV, sinV, cosH * cosV);
-
+    
     const channelIndex = Math.floor(
       (vAngleRad - STATIC_VERTICAL_FOV_MIN_RAD) *
         STATIC_INV_VERTICAL_RANGE *
@@ -276,13 +281,14 @@ function castRaysInternal(
 
     const point = castSingleRay(
       sensorPosition,
-      rayDirection, // Pass the reused object
+      direction,
       meshesToIntersect,
       channelIndex,
       currentTime * 1000,
       raycaster,
       lidarConfig,
-      scene
+      scene,
+      frameIntensityCalculator 
     );
 
     if (point) {
