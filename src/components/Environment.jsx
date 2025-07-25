@@ -5,8 +5,6 @@ import StaticInstances from './StaticInstances';
 import DynamicInstances from './DynamicInstances';
 import Lighting from './Lighting';
 
-// Patch Three.js raycast once (safe to call multiple times)
-THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
 const Environment = React.memo( () =>
 {
