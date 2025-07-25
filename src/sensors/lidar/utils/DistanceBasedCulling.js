@@ -7,8 +7,8 @@ export class DistanceBasedCulling {
     this.bufferDistance = bufferDistance;
     this.cullDistance = maxRange + bufferDistance;
     this.sensorPosition = new THREE.Vector3();
-    this.tempVector = new THREE.Vector3();
-    this.tempSphere = new THREE.Sphere();
+    this.tempVector = new THREE.Vector3(); // Reused temp vector
+    this.tempSphere = new THREE.Sphere(); // Reused temp sphere
 
     this.stats = {
       totalMeshes: 0,
@@ -32,11 +32,13 @@ export class DistanceBasedCulling {
     }
   }
 
-  shouldCullMesh(mesh) {
+  // Optimized to return culling status and distance/reason
+  _getCullingStatus(mesh) {
     if (!mesh || !mesh.geometry) {
-      return false;
+      return { culled: false, distance: 0, tooClose: false, tooFar: false };
     }
 
+    // Ensure boundingSphere is computed. This call can be expensive if not already done.
     if (!mesh.geometry.boundingSphere) {
       mesh.geometry.computeBoundingSphere();
     }
@@ -45,13 +47,16 @@ export class DistanceBasedCulling {
     this.tempSphere.center.applyMatrix4(mesh.matrixWorld);
     const distance = this.sensorPosition.distanceTo(this.tempSphere.center);
 
-    this.stats.minDistance = Math.min(this.stats.minDistance, distance);
-    this.stats.maxDistance = Math.max(this.stats.maxDistance, distance);
-
     const tooClose = distance + this.tempSphere.radius < this.minRange;
     const tooFar = distance - this.tempSphere.radius > this.cullDistance;
 
-    return tooClose || tooFar;
+    return {
+      culled: tooClose || tooFar,
+      distance: distance,
+      tooClose: tooClose,
+      tooFar: tooFar,
+      radius: this.tempSphere.radius, // Include radius for comprehensive info
+    };
   }
 
   updateStats(total, visible, processingTime, tooClose = 0, tooFar = 0) {
@@ -104,25 +109,28 @@ export class DistanceBasedCulling {
     this.resetDistanceTracking();
 
     const visibleMeshes = [];
-    let tooClose = 0;
-    let tooFar = 0;
+    let tooCloseCount = 0;
+    let tooFarCount = 0;
 
     for (const mesh of meshes) {
-      if (this.shouldCullMesh(mesh)) {
-        if (!mesh || !mesh.geometry) continue;
+      // Get all culling status info in one call
+      const status = this._getCullingStatus(mesh);
 
-        if (!mesh.geometry.boundingSphere) {
-          mesh.geometry.computeBoundingSphere();
-        }
+      // Update overall min/max distance stats
+      this.stats.minDistance = Math.min(
+        this.stats.minDistance,
+        status.distance
+      );
+      this.stats.maxDistance = Math.max(
+        this.stats.maxDistance,
+        status.distance
+      );
 
-        this.tempSphere.copy(mesh.geometry.boundingSphere);
-        this.tempSphere.center.applyMatrix4(mesh.matrixWorld);
-        const distance = this.sensorPosition.distanceTo(this.tempSphere.center);
-
-        if (distance + this.tempSphere.radius < this.minRange) {
-          tooClose++;
-        } else if (distance - this.tempSphere.radius > this.cullDistance) {
-          tooFar++;
+      if (status.culled) {
+        if (status.tooClose) {
+          tooCloseCount++;
+        } else if (status.tooFar) {
+          tooFarCount++;
         }
       } else {
         visibleMeshes.push(mesh);
@@ -136,8 +144,8 @@ export class DistanceBasedCulling {
       meshes.length,
       visibleMeshes.length,
       processingTime,
-      tooClose,
-      tooFar
+      tooCloseCount,
+      tooFarCount
     );
 
     return {
@@ -146,8 +154,8 @@ export class DistanceBasedCulling {
         total: meshes.length,
         visible: visibleMeshes.length,
         culled: meshes.length - visibleMeshes.length,
-        tooClose: tooClose,
-        tooFar: tooFar,
+        tooClose: tooCloseCount,
+        tooFar: tooFarCount,
         processingTime: processingTime,
       },
     };
