@@ -36,7 +36,6 @@ const LidarSensor = ( {
     // Frame manager for capturing and exporting frames
     const frameManager = useRef( null );
     const [ isCapturing, setIsCapturing ] = useState( false );
-    const [ frameStats, setFrameStats ] = useState( { frameCount: 0 } );
 
     const lidarConfig = useMemo( () =>
     {
@@ -272,7 +271,6 @@ const LidarSensor = ( {
             {
                 frameManager.current.stopCapture();
                 setIsCapturing( false );
-                setFrameStats( frameManager.current.getFrameStatistics() );
             }
         };
 
@@ -288,8 +286,7 @@ const LidarSensor = ( {
         {
             if ( frameManager.current )
             {
-                frameManager.current.clearFrames();
-                setFrameStats( { frameCount: 0 } );
+                frameManager.current.clearFrames();;
             }
         };
 
@@ -309,7 +306,7 @@ const LidarSensor = ( {
 
         // Throttle updates to 30 FPS
         const now = state.clock.elapsedTime;
-        if ( now - lastUpdateTime.current < ( 1 / 30 ) ) return;
+        if ( now - lastUpdateTime.current < ( 1 / 60 ) ) return;
         lastUpdateTime.current = now;
 
         updateScanAngle( delta, scanState.current, lidarConfig.scanRate );
@@ -344,11 +341,6 @@ const LidarSensor = ( {
         if ( isCapturing && frameManager.current )
         {
             frameManager.current.addPointsToFrame( newPoints );
-
-            if ( frameCounter.current % 60 === 0 )
-            {
-                setFrameStats( frameManager.current.getFrameStatistics() );
-            }
         }
 
         frameCounter.current++;
