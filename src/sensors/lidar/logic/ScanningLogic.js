@@ -165,7 +165,7 @@ function castRaysInternal(
   const newPointsBuffer = new Float32Array(bufferSize);
   let pointsAddedCount = 0; // Track actual number of valid points added
 
-  // PRE-COMPUTED constants 
+  // PRE-COMPUTED constants
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
   const verticalRange = lidarConfig.verticalFOVMax - lidarConfig.verticalFOVMin;
   const verticalRangeRad = THREE.MathUtils.degToRad(verticalRange);
@@ -175,11 +175,11 @@ function castRaysInternal(
   const numChannelsMinusOne = lidarConfig.numChannels - 1;
   const frameBaseIndex = scanState.frameCount * lidarConfig.pointsPerFrame;
   const twoPI = Math.PI * 2;
-  const invVerticalRange = 1.0 / verticalRange; 
+  const invVerticalRange = 1.0 / verticalRange; // Pre-compute division
 
   for (let i = 0; i < lidarConfig.pointsPerFrame; i++) {
     const baseIndex = frameBaseIndex + i + scanState.patternOffset;
-    const normalizedIndex = (baseIndex % 1000) * 0.001; 
+    const normalizedIndex = (baseIndex % 1000) * 0.001;
 
     const hAngleRad =
       (scanState.horizontalAngle +
@@ -196,10 +196,18 @@ function castRaysInternal(
       lidarConfig.verticalFOVMin + verticalPosAdjusted * verticalRange;
     const vAngleRad = THREE.MathUtils.degToRad(verticalAngle);
 
-    const direction = calculateRayDirection(hAngleRad, vAngleRad);
+    // OPTIMIZE: Inline calculateRayDirection to avoid function call overhead
+    const cosV = Math.cos(vAngleRad);
+    const sinV = Math.sin(vAngleRad);
+    const cosH = Math.cos(hAngleRad);
+    const sinH = Math.sin(hAngleRad);
+
+    // Create direction vector inline
+    const direction = new THREE.Vector3(sinH * cosV, sinV, cosH * cosV);
+
+    // OPTIMIZE: Use pre-computed values for channelIndex calculation
     const channelIndex = Math.floor(
-      ((verticalAngle - lidarConfig.verticalFOVMin) / verticalRange) *
-        (lidarConfig.numChannels - 1)
+      (vAngleRad - verticalFOVMinRad) * invVerticalRange * numChannelsMinusOne
     );
 
     const point = castSingleRay(
