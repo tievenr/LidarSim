@@ -160,34 +160,38 @@ function castRaysInternal(
   scene,
   currentTime
 ) {
-  // NEW: Initialize a Float32Array to directly store components
   const componentsPerPoint = 4; // X, Y, Z, Intensity
   const bufferSize = lidarConfig.pointsPerFrame * componentsPerPoint;
   const newPointsBuffer = new Float32Array(bufferSize);
   let pointsAddedCount = 0; // Track actual number of valid points added
 
+  // PRE-COMPUTED constants 
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const verticalRange = lidarConfig.verticalFOVMax - lidarConfig.verticalFOVMin;
+  const verticalRangeRad = THREE.MathUtils.degToRad(verticalRange);
+  const verticalFOVMinRad = THREE.MathUtils.degToRad(
+    lidarConfig.verticalFOVMin
+  );
+  const numChannelsMinusOne = lidarConfig.numChannels - 1;
+  const frameBaseIndex = scanState.frameCount * lidarConfig.pointsPerFrame;
+  const twoPI = Math.PI * 2;
+  const invVerticalRange = 1.0 / verticalRange; 
 
   for (let i = 0; i < lidarConfig.pointsPerFrame; i++) {
-    const baseIndex =
-      scanState.frameCount * lidarConfig.pointsPerFrame +
-      i +
-      scanState.patternOffset;
-    const normalizedIndex = (baseIndex % 1000) / 1000;
+    const baseIndex = frameBaseIndex + i + scanState.patternOffset;
+    const normalizedIndex = (baseIndex % 1000) * 0.001; 
 
     const hAngleRad =
       (scanState.horizontalAngle +
-        normalizedIndex * Math.PI * 2 +
+        normalizedIndex * twoPI +
         goldenAngle * baseIndex) %
-      (Math.PI * 2);
+      twoPI;
 
     const hash =
       Math.sin(baseIndex * 0.1) * 10000 + Math.cos(baseIndex * 0.7) * 10000;
     const verticalPos = Math.abs((hash % 1000) / 1000);
     const verticalPosAdjusted = Math.pow(verticalPos, 0.8);
 
-    const verticalRange =
-      lidarConfig.verticalFOVMax - lidarConfig.verticalFOVMin;
     const verticalAngle =
       lidarConfig.verticalFOVMin + verticalPosAdjusted * verticalRange;
     const vAngleRad = THREE.MathUtils.degToRad(verticalAngle);
@@ -210,7 +214,6 @@ function castRaysInternal(
     );
 
     if (point) {
-      // If point is valid, directly add its components to the Float32Array
       const bufferWriteIndex = pointsAddedCount * componentsPerPoint;
       newPointsBuffer[bufferWriteIndex] = point.x;
       newPointsBuffer[bufferWriteIndex + 1] = point.y;
@@ -219,7 +222,6 @@ function castRaysInternal(
       pointsAddedCount++;
     }
   }
-  // Return a subarray to get only the valid points that were actually added
   return newPointsBuffer.subarray(0, pointsAddedCount * componentsPerPoint);
 }
 
@@ -235,7 +237,6 @@ export function castRaysForFrame(
 ) {
   const frameStartTime = performance.now();
 
-  // Always use the smart mesh collection function
   const meshCollection = collectIntersectableMeshes(
     scene,
     sensorPosition,
@@ -249,7 +250,6 @@ export function castRaysForFrame(
   );
 
   const newPoints = castRaysInternal(
-    // newPoints will now be a Float32Array
     sensorPosition,
     meshCollection.meshes,
     scanState,
@@ -263,11 +263,11 @@ export function castRaysForFrame(
   const frameProcessingTime = frameEndTime - frameStartTime;
 
   return {
-    points: newPoints, // This is now a Float32Array
+    points: newPoints,
     cullingStats: meshCollection.statistics,
     frameStats: {
       processingTime: frameProcessingTime,
-      pointsGenerated: newPoints.length / 4, // Calculate points based on Float32Array length
+      pointsGenerated: newPoints.length / 4,
       meshesProcessed: meshCollection.meshes.length,
     },
   };
