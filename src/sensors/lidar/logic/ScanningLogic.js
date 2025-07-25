@@ -2,14 +2,14 @@ import * as THREE from "three";
 import { IntensityCalculator } from "../utils/IntensityCalculator";
 import { DistanceBasedCulling } from "../utils/DistanceBasedCulling";
 
-// TRULY CONSTANT VALUES 
+// TRULY CONSTANT VALUES
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const TWO_PI = Math.PI * 2;
 
-// LIDAR CONFIG-DEPENDENT CONSTANTS (if lidarConfig.verticalFOVMin/Max/numChannels are static)
-const STATIC_VERTICAL_FOV_MIN_DEG = -7; 
-const STATIC_VERTICAL_FOV_MAX_DEG = 52; 
-const STATIC_NUM_CHANNELS = 40; 
+// LIDAR CONFIG-DEPENDENT CONSTANTS (these values are now static based on your clarification)
+const STATIC_VERTICAL_FOV_MIN_DEG = -7;
+const STATIC_VERTICAL_FOV_MAX_DEG = 52;
+const STATIC_NUM_CHANNELS = 40;
 const STATIC_VERTICAL_RANGE =
   STATIC_VERTICAL_FOV_MAX_DEG - STATIC_VERTICAL_FOV_MIN_DEG;
 const STATIC_VERTICAL_RANGE_RAD = THREE.MathUtils.degToRad(
@@ -21,6 +21,49 @@ const STATIC_VERTICAL_FOV_MIN_RAD = THREE.MathUtils.degToRad(
 const STATIC_NUM_CHANNELS_MINUS_ONE = STATIC_NUM_CHANNELS - 1;
 const STATIC_INV_VERTICAL_RANGE = 1.0 / STATIC_VERTICAL_RANGE;
 
+// PHASE 3: TRIGONOMETRY LOOKUP TABLES
+const TRIG_TABLE_SIZE = 4096; // Resolution of the lookup table. Higher = more accurate, more memory.
+const TRIG_FACTOR = TRIG_TABLE_SIZE / TWO_PI; // Factor to map radians to table index
+
+const _sinTable = new Float32Array(TRIG_TABLE_SIZE);
+const _cosTable = new Float32Array(TRIG_TABLE_SIZE);
+
+// Populate lookup tables once when the module loads
+for (let i = 0; i < TRIG_TABLE_SIZE; i++) {
+  const angle = (i / TRIG_TABLE_SIZE) * TWO_PI;
+  _sinTable[i] = Math.sin(angle);
+  _cosTable[i] = Math.cos(angle);
+}
+
+/**
+ * Fast approximation of Math.sin using a lookup table.
+ * @param {number} angleRad Angle in radians.
+ * @returns {number} Sine value.
+ */
+function fastSin(angleRad) {
+  // Normalize angle to 0 to 2PI range
+  let index = angleRad * TRIG_FACTOR;
+  index = index % TRIG_TABLE_SIZE;
+  if (index < 0) {
+    index += TRIG_TABLE_SIZE;
+  }
+  return _sinTable[Math.floor(index)]; // Using Math.floor for direct lookup
+}
+
+/**
+ * Fast approximation of Math.cos using a lookup table.
+ * @param {number} angleRad Angle in radians.
+ * @returns {number} Cosine value.
+ */
+function fastCos(angleRad) {
+  // Normalize angle to 0 to 2PI range
+  let index = angleRad * TRIG_FACTOR;
+  index = index % TRIG_TABLE_SIZE;
+  if (index < 0) {
+    index += TRIG_TABLE_SIZE;
+  }
+  return _cosTable[Math.floor(index)]; // Using Math.floor for direct lookup
+}
 
 export function initializeVerticalAngles(
   numChannels,
@@ -181,7 +224,7 @@ function castRaysInternal(
   meshesToIntersect,
   scanState,
   raycaster,
-  lidarConfig, 
+  lidarConfig,
   scene,
   currentTime
 ) {
@@ -199,24 +242,30 @@ function castRaysInternal(
 
     const hAngleRad =
       (scanState.horizontalAngle +
-        normalizedIndex * TWO_PI + 
-        GOLDEN_ANGLE * baseIndex) % 
-      TWO_PI; 
+        normalizedIndex * TWO_PI +
+        GOLDEN_ANGLE * baseIndex) %
+      TWO_PI;
 
+    // Optimized: Replace expensive hash with simpler pseudo-random (LCG)
     const simpleHash = ((baseIndex * 1664525 + 1013904223) >>> 0) / 4294967296;
     const verticalPos = simpleHash;
+
+    // Optimized: Replace Math.pow with faster approximation (x^1.25 as intended by source)
     const verticalPosAdjusted = verticalPos * Math.sqrt(Math.sqrt(verticalPos));
 
+    // Use STATIC global constants for vertical angle calculation
     const verticalAngle =
       STATIC_VERTICAL_FOV_MIN_DEG + verticalPosAdjusted * STATIC_VERTICAL_RANGE;
-    const vAngleRad = THREE.MathUtils.degToRad(verticalAngle); 
+    const vAngleRad = THREE.MathUtils.degToRad(verticalAngle);
 
-    const cosV = Math.cos(vAngleRad);
-    const sinV = Math.sin(vAngleRad);
-    const cosH = Math.cos(hAngleRad);
-    const sinH = Math.sin(hAngleRad);
+    // Inlined calculateRayDirection - NOW USE fastSin/fastCos
+    const cosV = fastCos(vAngleRad); // Replaced Math.cos
+    const sinV = fastSin(vAngleRad); // Replaced Math.sin
+    const cosH = fastCos(hAngleRad); // Replaced Math.cos
+    const sinH = fastSin(hAngleRad); // Replaced Math.sin
     const direction = new THREE.Vector3(sinH * cosV, sinV, cosH * cosV);
 
+    // Optimized channelIndex calculation using STATIC global constants
     const channelIndex = Math.floor(
       (vAngleRad - STATIC_VERTICAL_FOV_MIN_RAD) *
         STATIC_INV_VERTICAL_RANGE *
