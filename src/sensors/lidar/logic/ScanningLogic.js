@@ -6,7 +6,7 @@ import { DistanceBasedCulling } from "../utils/DistanceBasedCulling";
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const TWO_PI = Math.PI * 2;
 
-// LIDAR CONFIG-DEPENDENT CONSTANTS (these values are now static based on your clarification)
+// LIDAR CONFIG-DEPENDENT CONSTANTS 
 const STATIC_VERTICAL_FOV_MIN_DEG = -7;
 const STATIC_VERTICAL_FOV_MAX_DEG = 52;
 const STATIC_NUM_CHANNELS = 40;
@@ -21,7 +21,7 @@ const STATIC_VERTICAL_FOV_MIN_RAD = THREE.MathUtils.degToRad(
 const STATIC_NUM_CHANNELS_MINUS_ONE = STATIC_NUM_CHANNELS - 1;
 const STATIC_INV_VERTICAL_RANGE = 1.0 / STATIC_VERTICAL_RANGE;
 
-// PHASE 3: TRIGONOMETRY LOOKUP TABLES
+
 const TRIG_TABLE_SIZE = 4096; // Resolution of the lookup table. Higher = more accurate, more memory.
 const TRIG_FACTOR = TRIG_TABLE_SIZE / TWO_PI; // Factor to map radians to table index
 
@@ -180,15 +180,16 @@ export function castSingleRay(
   timestamp,
   raycaster,
   lidarConfig,
-  scene
+  scene,
+  intensityCalculator 
 ) {
   raycaster.set(origin, direction);
   const intersects = raycaster.intersectObjects(meshesToIntersect, true);
 
   if (intersects.length > 0) {
     const point = intersects[0].point;
-    const intensityCalculator = new IntensityCalculator(lidarConfig);
     const intensity = intensityCalculator.calculateIntensity(
+     
       origin,
       point,
       direction,
@@ -233,8 +234,14 @@ function castRaysInternal(
   const newPointsBuffer = new Float32Array(bufferSize);
   let pointsAddedCount = 0; // Track actual number of valid points added
 
-  // PER-FRAME DEPENDENT CONSTANTS (only frameBaseIndex changes per frame)
+  
   const frameBaseIndex = scanState.frameCount * lidarConfig.pointsPerFrame;
+
+
+  const rayDirection = new THREE.Vector3();
+
+
+  const frameIntensityCalculator = new IntensityCalculator(lidarConfig);
 
   for (let i = 0; i < lidarConfig.pointsPerFrame; i++) {
     const baseIndex = frameBaseIndex + i + scanState.patternOffset;
@@ -246,26 +253,26 @@ function castRaysInternal(
         GOLDEN_ANGLE * baseIndex) %
       TWO_PI;
 
-    // Optimized: Replace expensive hash with simpler pseudo-random (LCG)
+    
     const simpleHash = ((baseIndex * 1664525 + 1013904223) >>> 0) / 4294967296;
     const verticalPos = simpleHash;
 
-    // Optimized: Replace Math.pow with faster approximation (x^1.25 as intended by source)
+   
     const verticalPosAdjusted = verticalPos * Math.sqrt(Math.sqrt(verticalPos));
 
-    // Use STATIC global constants for vertical angle calculation
+   
     const verticalAngle =
       STATIC_VERTICAL_FOV_MIN_DEG + verticalPosAdjusted * STATIC_VERTICAL_RANGE;
     const vAngleRad = THREE.MathUtils.degToRad(verticalAngle);
 
-    // Inlined calculateRayDirection - NOW USE fastSin/fastCos
-    const cosV = fastCos(vAngleRad); // Replaced Math.cos
-    const sinV = fastSin(vAngleRad); // Replaced Math.sin
-    const cosH = fastCos(hAngleRad); // Replaced Math.cos
-    const sinH = fastSin(hAngleRad); // Replaced Math.sin
-    const direction = new THREE.Vector3(sinH * cosV, sinV, cosH * cosV);
 
-    // Optimized channelIndex calculation using STATIC global constants
+    const cosV = fastCos(vAngleRad);
+    const sinV = fastSin(vAngleRad);
+    const cosH = fastCos(hAngleRad);
+    const sinH = fastSin(hAngleRad);
+    const direction = rayDirection.set(sinH * cosV, sinV, cosH * cosV); 
+
+    
     const channelIndex = Math.floor(
       (vAngleRad - STATIC_VERTICAL_FOV_MIN_RAD) *
         STATIC_INV_VERTICAL_RANGE *
@@ -280,7 +287,8 @@ function castRaysInternal(
       currentTime * 1000,
       raycaster,
       lidarConfig,
-      scene
+      scene,
+      frameIntensityCalculator 
     );
 
     if (point) {
