@@ -71,7 +71,7 @@ const UIControls = () =>
                         <input
                             type="range"
                             min="1"
-                            max="30"
+                            max="100"
                             value={Math.round( config.scanRate / ( 2 * Math.PI ) )}
                             onChange={( e ) => updateConfig( 'scanRate', parseInt( e.target.value ) * 2 * Math.PI )}
                             className="w-32 accent-blue-500"
