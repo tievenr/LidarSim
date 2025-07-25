@@ -86,6 +86,7 @@ export function initializeVerticalAngles(
     .map((_, i) => -verticalFOV / 2 + (i * verticalFOV) / (numChannels - 1));
 }
 
+// NOTE: This function is no longer called within castRaysInternal
 export function calculateRayDirection(hAngleRad, vAngleRad) {
   return new THREE.Vector3(
     Math.sin(hAngleRad) * Math.cos(vAngleRad),
@@ -236,6 +237,9 @@ function castRaysInternal(
   // PER-FRAME DEPENDENT CONSTANTS (only frameBaseIndex changes per frame)
   const frameBaseIndex = scanState.frameCount * lidarConfig.pointsPerFrame;
 
+  // PHASE 4: OBJECT POOLING - Pre-allocate a single Vector3 for direction and reuse it
+  const rayDirection = new THREE.Vector3(); // Allocate once outside the loop
+
   for (let i = 0; i < lidarConfig.pointsPerFrame; i++) {
     const baseIndex = frameBaseIndex + i + scanState.patternOffset;
     const normalizedIndex = (baseIndex % 1000) * 0.001;
@@ -246,26 +250,24 @@ function castRaysInternal(
         GOLDEN_ANGLE * baseIndex) %
       TWO_PI;
 
-    // Optimized: Replace expensive hash with simpler pseudo-random (LCG)
     const simpleHash = ((baseIndex * 1664525 + 1013904223) >>> 0) / 4294967296;
     const verticalPos = simpleHash;
-
-    // Optimized: Replace Math.pow with faster approximation (x^1.25 as intended by source)
     const verticalPosAdjusted = verticalPos * Math.sqrt(Math.sqrt(verticalPos));
 
-    // Use STATIC global constants for vertical angle calculation
-    const verticalAngle =
-      STATIC_VERTICAL_FOV_MIN_DEG + verticalPosAdjusted * STATIC_VERTICAL_RANGE;
-    const vAngleRad = THREE.MathUtils.degToRad(verticalAngle);
+    // Use STATIC global constants for vertical angle calculation, and eliminate in-loop degToRad
+    const vAngleRad =
+      STATIC_VERTICAL_FOV_MIN_RAD +
+      verticalPosAdjusted * STATIC_VERTICAL_RANGE_RAD;
 
-    // Inlined calculateRayDirection - NOW USE fastSin/fastCos
-    const cosV = fastCos(vAngleRad); // Replaced Math.cos
-    const sinV = fastSin(vAngleRad); // Replaced Math.sin
-    const cosH = fastCos(hAngleRad); // Replaced Math.cos
-    const sinH = fastSin(hAngleRad); // Replaced Math.sin
-    const direction = new THREE.Vector3(sinH * cosV, sinV, cosH * cosV);
+    // Inlined calculateRayDirection - NOW USE fastSin/fastCos and reuse rayDirection object
+    const cosV = fastCos(vAngleRad);
+    const sinV = fastSin(vAngleRad);
+    const cosH = fastCos(hAngleRad);
+    const sinH = fastSin(hAngleRad);
 
-    // Optimized channelIndex calculation using STATIC global constants
+    // Reuse the pre-allocated rayDirection object
+    rayDirection.set(sinH * cosV, sinV, cosH * cosV);
+
     const channelIndex = Math.floor(
       (vAngleRad - STATIC_VERTICAL_FOV_MIN_RAD) *
         STATIC_INV_VERTICAL_RANGE *
@@ -274,7 +276,7 @@ function castRaysInternal(
 
     const point = castSingleRay(
       sensorPosition,
-      direction,
+      rayDirection, // Pass the reused object
       meshesToIntersect,
       channelIndex,
       currentTime * 1000,
