@@ -37,7 +37,7 @@ const Environment = React.memo( () =>
                 rotation={[ -Math.PI / 2, 0, 0 ]}
                 receiveShadow
             >
-                <planeGeometry args={[ 800, 800 ]} />
+                <planeGeometry args={[ 200, 200 ]} />
                 <meshStandardMaterial color="#b6e3b6" roughness={0.7} metalness={0.08} />
             </mesh>
 
@@ -50,7 +50,7 @@ const Environment = React.memo( () =>
                 castShadow
             >
                 {/* width, height (thickness), depth */}
-                <boxGeometry args={[ 15, 0.12, 800 ]} />
+                <boxGeometry args={[ 15, 0.12, 200 ]} />
                 <meshStandardMaterial
                     color="#444"
                     roughness={0.5}
@@ -60,7 +60,7 @@ const Environment = React.memo( () =>
                 />
                 {/* Lane lines */}
                 <mesh position={[ 0, 0.07, 0 ]}>
-                    <boxGeometry args={[ 0.3, 0.01, 800 ]} />
+                    <boxGeometry args={[ 0.3, 0.01, 200 ]} />
                     <meshStandardMaterial color="#fff" roughness={0.3} metalness={0.1} opacity={0.7} transparent />
                 </mesh>
             </mesh>
