@@ -1,14 +1,16 @@
 // src/components/SceneInstances.jsx
 import React, { useRef, useMemo, useEffect, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { InstancedMesh2 } from '@three.ez/instanced-mesh';
 
 const STATIC_BUILDINGS_COUNT = 100;
 const DYNAMIC_CARS_COUNT = 5;
+const ANIMATION_DISTANCE = 300; // Only animate cars within this distance from camera
 
 const SceneInstances = () =>
 {
+    const { camera } = useThree();
     const [ buildingMesh, setBuildingMesh ] = useState( null );
     const [ carMesh, setCarMesh ] = useState( null );
 
@@ -65,7 +67,7 @@ const SceneInstances = () =>
             }
             object.position.copy( tempPosition );
             instancedMesh.setColorAt( i, new THREE.Color( 0x00ff00 ) );
-            object.updateMatrix();
+            object.updateMatrix(); // Buildings are static, full matrix update is fine
         } );
 
         instancedMesh.instanceMatrix.needsUpdate = true;
@@ -103,7 +105,7 @@ const SceneInstances = () =>
             object.position.set( x, carGeometry.parameters.height / 2 + 0.1, z );
             instancedMesh.setColorAt( i, new THREE.Color( 0xff0000 ) );
             initialPositionsData.push( new THREE.Vector3().copy( object.position ) );
-            object.updateMatrix();
+            object.updateMatrix(); // Initial setup, full matrix is fine
         } );
 
         instancedMesh.userData.initialPositions = initialPositionsData;
@@ -122,33 +124,60 @@ const SceneInstances = () =>
         };
     }, [ carGeometry, carMaterial ] );
 
-    // Animation for cars
+    // Optimized animation for cars with virtual position tracking
     useFrame( ( { clock } ) =>
     {
         if ( !carMesh ) return;
 
         const initialPositions = carMesh.userData.initialPositions;
+        const cameraPosition = camera.position;
         let needsBVHUpdate = false;
+        let anyCarMoved = false;
 
         for ( let i = 0; i < DYNAMIC_CARS_COUNT; i++ )
         {
             const object = carMesh.instances[ i ];
             const initialPos = initialPositions[ i ];
+
+            // Calculate the "virtual" position (where car should be regardless of distance)
             const speed = 5 + ( i * 0.5 );
             const newZ = ( initialPos.z + clock.elapsedTime * speed ) % 400;
-            const newPosition = new THREE.Vector3( initialPos.x, initialPos.y, newZ > 200 ? newZ - 800 : newZ );
+            const virtualPosition = new THREE.Vector3( initialPos.x, initialPos.y, newZ > 200 ? newZ - 800 : newZ );
 
-            if ( !object.position.equals( newPosition ) )
+            // Distance-based culling: only update matrix for cars within range
+            const distanceToCamera = virtualPosition.distanceTo( cameraPosition );
+
+            if ( distanceToCamera < ANIMATION_DISTANCE )
             {
-                object.position.copy( newPosition );
-                object.updateMatrix();
-                needsBVHUpdate = true;
+                // Car is close enough - update its actual position and matrix
+                if ( !object.position.equals( virtualPosition ) )
+                {
+                    object.position.copy( virtualPosition );
+                    object.updateMatrixPosition();
+                    needsBVHUpdate = true;
+                    anyCarMoved = true;
+                }
+            } else
+            {
+                // Car is far away - still update position but skip expensive matrix operations
+                // This ensures car "teleports" to correct position when camera gets closer
+                if ( !object.position.equals( virtualPosition ) )
+                {
+                    object.position.copy( virtualPosition );
+                    // Skip updateMatrixPosition() for distant cars to save performance
+                    // The matrix will be updated when car comes back into range
+                }
             }
+        }
+
+        // Only update matrices and BVH if cars actually moved within animation range
+        if ( anyCarMoved )
+        {
+            carMesh.instanceMatrix.needsUpdate = true;
         }
 
         if ( needsBVHUpdate )
         {
-            carMesh.instanceMatrix.needsUpdate = true;
             carMesh.computeBVH( { getBBoxFromBSphere: true, margin: 1 } );
         }
     } );
