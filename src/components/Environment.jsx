@@ -1,10 +1,8 @@
 // src/components/Environment.jsx
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
-import SceneInstances from './SceneInstances'; // Now imports the combined instances component
-
+import SceneInstances from './SceneInstances';
 import Lighting from './Lighting';
-
 
 const Environment = React.memo( () =>
 {
@@ -26,6 +24,9 @@ const Environment = React.memo( () =>
 
     return (
         <>
+            {/* Lighting FIRST - instances need light to render properly */}
+            <Lighting />
+
             {/* Ground system */}
             <mesh
                 ref={groundRef}
@@ -34,7 +35,11 @@ const Environment = React.memo( () =>
                 receiveShadow
             >
                 <planeGeometry args={[ 800, 800 ]} />
-                <meshStandardMaterial color="#b6e3b6" roughness={0.7} metalness={0.08} />
+                <meshStandardMaterial
+                    color="#b6e3b6"
+                    roughness={0.7}
+                    metalness={0.08}
+                />
             </mesh>
 
             {/* Road as a box geometry */}
@@ -53,18 +58,22 @@ const Environment = React.memo( () =>
                     opacity={0.98}
                     transparent
                 />
+
                 {/* Lane lines */}
                 <mesh position={[ 0, 0.07, 0 ]}>
                     <boxGeometry args={[ 0.3, 0.01, 800 ]} />
-                    <meshStandardMaterial color="#fff" roughness={0.3} metalness={0.1} opacity={0.7} transparent />
+                    <meshStandardMaterial
+                        color="#fff"
+                        roughness={0.3}
+                        metalness={0.1}
+                        opacity={0.7}
+                        transparent
+                    />
                 </mesh>
             </mesh>
 
             {/* Combined Static and Dynamic Instances */}
-            <SceneInstances /> {/* RENDER THE NEW COMBINED COMPONENT */}
-
-            {/* Lighting */}
-            <Lighting />
+            <SceneInstances />
         </>
     );
 } );

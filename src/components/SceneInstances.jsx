@@ -1,37 +1,44 @@
 // src/components/SceneInstances.jsx
-import React, { useRef, useMemo, useEffect } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import React, { useRef, useMemo, useEffect, useState } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { InstancedMesh2 } from '@three.ez/instanced-mesh';
 
-const STATIC_BUILDINGS_COUNT = 500;
+const STATIC_BUILDINGS_COUNT = 100;
 const DYNAMIC_CARS_COUNT = 5;
 
 const SceneInstances = () =>
 {
-    console.log( 'SceneInstances: Component Rendered' );
-    const { scene } = useThree();
-    console.log( 'SceneInstances: useThree() scene object:', scene );
-
-    const staticBuildingsInstancedMeshRef = useRef();
-    const dynamicCarsInstancedMeshRef = useRef();
+    const [ buildingMesh, setBuildingMesh ] = useState( null );
+    const [ carMesh, setCarMesh ] = useState( null );
 
     const { buildingGeometry, buildingMaterial, carGeometry, carMaterial } = useMemo( () =>
     {
-        console.log( 'SceneInstances: useMemo for geometries and materials.' );
         const buildingGeo = new THREE.BoxGeometry( 10, 30, 10 );
-        const buildingMat = new THREE.MeshStandardMaterial( { color: '#777777', roughness: 0.7, metalness: 0.1, vertexColors: true } );
+        const buildingMat = new THREE.MeshStandardMaterial( {
+            color: '#777777',
+            roughness: 0.7,
+            metalness: 0.1
+        } );
 
         const carGeo = new THREE.BoxGeometry( 1.8, 0.8, 4 );
-        const carMat = new THREE.MeshStandardMaterial( { color: '#FF0000', roughness: 0.5, metalness: 0.2, vertexColors: true } );
+        const carMat = new THREE.MeshStandardMaterial( {
+            color: '#FF0000',
+            roughness: 0.5,
+            metalness: 0.2
+        } );
 
-        return { buildingGeometry: buildingGeo, buildingMaterial: buildingMat, carGeometry: carGeo, carMaterial: carMat };
+        return {
+            buildingGeometry: buildingGeo,
+            buildingMaterial: buildingMat,
+            carGeometry: carGeo,
+            carMaterial: carMat
+        };
     }, [] );
 
-    // --- Setup for Static Instances (Buildings) ---
+    // Create building instances
     useEffect( () =>
     {
-        console.log( 'SceneInstances: useEffect for Static Buildings setup triggered.' );
         const instancedMesh = new InstancedMesh2(
             buildingGeometry,
             buildingMaterial,
@@ -40,8 +47,6 @@ const SceneInstances = () =>
                 createEntities: true,
             }
         );
-        staticBuildingsInstancedMeshRef.current = instancedMesh;
-        console.log( 'SceneInstances: Static Buildings InstancedMesh2 created:', instancedMesh );
 
         const tempPosition = new THREE.Vector3();
         instancedMesh.addInstances( STATIC_BUILDINGS_COUNT, ( object, i ) =>
@@ -59,28 +64,18 @@ const SceneInstances = () =>
                 tempPosition.set( x, y, z );
             }
             object.position.copy( tempPosition );
-
-            // --- MODIFIED COLOR FOR BUILDINGS (brighter, less random for base color) ---
-            // Ensuring brightness for visibility
-            const r = 0.5 + Math.random() * 0.4; // Min 0.5, max 0.9
-            const g = 0.5 + Math.random() * 0.4;
-            const b = 0.5 + Math.random() * 0.4;
-            instancedMesh.setColorAt( i, new THREE.Color( r, g, b ) );
-            // --- END MODIFIED COLOR ---
-
+            instancedMesh.setColorAt( i, new THREE.Color( 0x00ff00 ) );
             object.updateMatrix();
         } );
-        console.log( 'SceneInstances: Static Buildings populated using addInstances.' );
 
         instancedMesh.instanceMatrix.needsUpdate = true;
         if ( instancedMesh.instanceColor ) instancedMesh.instanceColor.needsUpdate = true;
-
         instancedMesh.computeBVH( { getBBoxFromBSphere: true, margin: 1 } );
-        console.log( 'SceneInstances: Static Buildings BVH computed.' );
+
+        setBuildingMesh( instancedMesh );
 
         return () =>
         {
-            console.log( 'SceneInstances: Static Buildings cleanup triggered.' );
             if ( instancedMesh )
             {
                 instancedMesh.dispose();
@@ -88,11 +83,9 @@ const SceneInstances = () =>
         };
     }, [ buildingGeometry, buildingMaterial ] );
 
-
-    // --- Setup for Dynamic Instances (Cars) ---
+    // Create car instances
     useEffect( () =>
     {
-        console.log( 'SceneInstances: useEffect for Dynamic Cars setup triggered.' );
         const instancedMesh = new InstancedMesh2(
             carGeometry,
             carMaterial,
@@ -101,8 +94,6 @@ const SceneInstances = () =>
                 createEntities: true,
             }
         );
-        dynamicCarsInstancedMeshRef.current = instancedMesh;
-        console.log( 'SceneInstances: Dynamic Cars InstancedMesh2 created:', instancedMesh );
 
         const initialPositionsData = [];
         instancedMesh.addInstances( DYNAMIC_CARS_COUNT, ( object, i ) =>
@@ -110,29 +101,20 @@ const SceneInstances = () =>
             const z = -200 + i * ( 800 / DYNAMIC_CARS_COUNT );
             const x = ( Math.random() > 0.5 ? 4 : -4 );
             object.position.set( x, carGeometry.parameters.height / 2 + 0.1, z );
-
-            // --- MODIFIED COLOR FOR CARS (using HSL for vibrant, random colors) ---
-            const hue = Math.random(); // 0 to 1 for hue
-            const saturation = 0.8 + Math.random() * 0.2; // High saturation
-            const lightness = 0.5 + Math.random() * 0.2; // Good lightness
-            instancedMesh.setColorAt( i, new THREE.Color().setHSL( hue, saturation, lightness ) );
-            // --- END MODIFIED COLOR ---
-
+            instancedMesh.setColorAt( i, new THREE.Color( 0xff0000 ) );
             initialPositionsData.push( new THREE.Vector3().copy( object.position ) );
             object.updateMatrix();
         } );
-        instancedMesh.userData.initialPositions = initialPositionsData;
-        console.log( 'SceneInstances: Dynamic Cars populated using addInstances.' );
 
+        instancedMesh.userData.initialPositions = initialPositionsData;
         instancedMesh.instanceMatrix.needsUpdate = true;
         if ( instancedMesh.instanceColor ) instancedMesh.instanceColor.needsUpdate = true;
-
         instancedMesh.computeBVH( { getBBoxFromBSphere: true, margin: 1 } );
-        console.log( 'SceneInstances: Dynamic Cars BVH computed for initial state.' );
+
+        setCarMesh( instancedMesh );
 
         return () =>
         {
-            console.log( 'SceneInstances: Dynamic Cars cleanup triggered.' );
             if ( instancedMesh )
             {
                 instancedMesh.dispose();
@@ -140,18 +122,17 @@ const SceneInstances = () =>
         };
     }, [ carGeometry, carMaterial ] );
 
-    // --- Animation for Dynamic Instances ---
+    // Animation for cars
     useFrame( ( { clock } ) =>
     {
-        const instancedMesh = dynamicCarsInstancedMeshRef.current;
-        if ( !instancedMesh ) return;
+        if ( !carMesh ) return;
 
-        const initialPositions = instancedMesh.userData.initialPositions;
-
+        const initialPositions = carMesh.userData.initialPositions;
         let needsBVHUpdate = false;
+
         for ( let i = 0; i < DYNAMIC_CARS_COUNT; i++ )
         {
-            const object = instancedMesh.instances[ i ];
+            const object = carMesh.instances[ i ];
             const initialPos = initialPositions[ i ];
             const speed = 5 + ( i * 0.5 );
             const newZ = ( initialPos.z + clock.elapsedTime * speed ) % 400;
@@ -167,22 +148,17 @@ const SceneInstances = () =>
 
         if ( needsBVHUpdate )
         {
-            instancedMesh.instanceMatrix.needsUpdate = true;
-            instancedMesh.computeBVH( { getBBoxFromBSphere: true, margin: 1 } );
+            carMesh.instanceMatrix.needsUpdate = true;
+            carMesh.computeBVH( { getBBoxFromBSphere: true, margin: 1 } );
         }
     } );
 
     return (
         <>
-            {staticBuildingsInstancedMeshRef.current && (
-                <primitive object={staticBuildingsInstancedMeshRef.current} />
-            )}
-            {dynamicCarsInstancedMeshRef.current && (
-                <primitive object={dynamicCarsInstancedMeshRef.current} />
-            )}
+            {buildingMesh && <primitive object={buildingMesh} />}
+            {carMesh && <primitive object={carMesh} />}
         </>
     );
 };
 
 export default SceneInstances;
-
