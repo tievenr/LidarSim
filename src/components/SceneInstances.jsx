@@ -95,6 +95,7 @@ const SceneInstances = () =>
         const tempPosition = new THREE.Vector3();
         instancedMesh.addInstances( STATIC_BUILDINGS_COUNT, ( object, i ) =>
         {
+            // Place buildings at fixed intervals along two streets
             const streetWidth = 40;
             const buildingSpacing = 50;
             const streetIndex = Math.floor( i / ( STATIC_BUILDINGS_COUNT / 2 ) );
@@ -138,6 +139,7 @@ const SceneInstances = () =>
         const initialPositionsData = [];
         instancedMesh.addInstances( totalCars, ( object, i ) =>
         {
+            // Place fixed cars
             if ( i < FIXED_CARS_COUNT )
             {
                 const x = ( i % 2 === 0 ) ? -10 : 10;
@@ -145,6 +147,7 @@ const SceneInstances = () =>
                 object.position.set( x, carGeometry.parameters.height / 2 + 0.1, z );
             } else
             {
+                // Place dynamic cars
                 const z = -200 + ( i - FIXED_CARS_COUNT ) * ( 800 / DYNAMIC_CARS_COUNT );
                 const x = ( Math.random() > 0.5 ? 4 : -4 );
                 object.position.set( x, carGeometry.parameters.height / 2 + 0.1, z );
@@ -184,6 +187,7 @@ const SceneInstances = () =>
         const tempPosition = new THREE.Vector3();
         instancedMesh.addInstances( STATIC_TREES_COUNT, ( object, i ) =>
         {
+            // Place trees at fixed intervals along two streets
             const streetWidth = 20;
             const treeSpacing = 20;
             const streetIndex = Math.floor( i / ( STATIC_TREES_COUNT / 2 ) );
