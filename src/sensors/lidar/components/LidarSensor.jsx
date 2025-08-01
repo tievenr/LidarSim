@@ -16,6 +16,15 @@ import { CircularPointBuffer } from '../utils/CircularPointBuffer';
 
 const MAX_POINTS = 50000;
 
+// Color mapping function to convert intensity to RGB
+const mapIntensityToColor = ( intensity ) =>
+{
+    const hue = ( 1 - intensity ) * 0.65;
+    const color = new THREE.Color();
+    color.setHSL( hue, 1.0, 0.5 );
+    return [ color.r, color.g, color.b ];
+};
+
 const LidarSensor = ( {
     position = [ 0, 2, 0 ],
     config = {}
@@ -97,44 +106,82 @@ const LidarSensor = ( {
         };
     }, [] );
 
-    // A unified and efficient visualization update function
+    // Unified visualization update function
     const updateVisualization = useCallback( () =>
     {
         if ( !pointCloudGeometry ) return;
 
-        // Get all update info in one single, atomic call
         const { newPoints, hasWraparound, updateInfo } = pointBuffer.current.getUpdateInfo();
 
         if ( newPoints.length === 0 ) return;
 
-        const { offset, count } = updateInfo;
-
         const positionAttribute = pointCloudGeometry.attributes.position;
         const colorAttribute = pointCloudGeometry.attributes.color;
 
-        // Copy new points data from the buffer to the GPU geometry
-        // The new `getUpdateInfo` method returns a `newPoints` array that is
-        // already correctly ordered for the visualization buffer.
+        // Transform 4-component buffer data to separate 3-component position and color arrays
+        const numPoints = newPoints.length / pointBuffer.current.componentsPerPoint;
+        const newPositions = new Float32Array( numPoints * 3 );
+        const newColors = new Float32Array( numPoints * 3 );
 
-        // This is a single, efficient copy operation for both linear and wraparound cases.
-        positionAttribute.array.set( newPoints, offset );
-        colorAttribute.array.set( newPoints, offset ); // Assuming color also uses the same data
+        for ( let i = 0; i < numPoints; i++ )
+        {
+            const sourceIndex = i * 4;
+            const destIndex = i * 3;
 
-        // Set the update range to tell Three.js exactly which part to re-upload
-        positionAttribute.updateRange = { offset, count };
-        colorAttribute.updateRange = { offset, count };
+            // Copy position (x, y, z)
+            newPositions[ destIndex ] = newPoints[ sourceIndex ];
+            newPositions[ destIndex + 1 ] = newPoints[ sourceIndex + 1 ];
+            newPositions[ destIndex + 2 ] = newPoints[ sourceIndex + 2 ];
+
+            // Map intensity to color
+            const intensity = newPoints[ sourceIndex + 3 ];
+            const color = mapIntensityToColor( intensity );
+            newColors[ destIndex ] = color[ 0 ];
+            newColors[ destIndex + 1 ] = color[ 1 ];
+            newColors[ destIndex + 2 ] = color[ 2 ];
+        }
+
+        if ( !hasWraparound )
+        {
+            // Linear update case
+            const startPointIndex = updateInfo.offset / pointBuffer.current.componentsPerPoint;
+            const componentOffset = startPointIndex * 3;
+
+            positionAttribute.array.set( newPositions, componentOffset );
+            colorAttribute.array.set( newColors, componentOffset );
+
+            positionAttribute.updateRange = { offset: componentOffset, count: newPositions.length };
+            colorAttribute.updateRange = { offset: componentOffset, count: newColors.length };
+
+            pointCloudGeometry.setDrawRange( 0, pointBuffer.current.size );
+        } else
+        {
+            // Wraparound update case - split into two segments
+            const firstSegmentPointCount = ( pointBuffer.current.bufferLength - updateInfo.offset ) / pointBuffer.current.componentsPerPoint;
+            const secondSegmentPointCount = numPoints - firstSegmentPointCount;
+
+            const firstSegmentComponentLength = firstSegmentPointCount * 3;
+            const secondSegmentComponentLength = secondSegmentPointCount * 3;
+
+            const firstSegmentComponentOffset = ( updateInfo.offset / pointBuffer.current.componentsPerPoint ) * 3;
+            const secondSegmentComponentOffset = 0;
+
+            // Copy first segment to end of geometry array
+            positionAttribute.array.set( newPositions.subarray( 0, firstSegmentComponentLength ), firstSegmentComponentOffset );
+            colorAttribute.array.set( newColors.subarray( 0, firstSegmentComponentLength ), firstSegmentComponentOffset );
+
+            // Copy second segment to beginning of geometry array
+            positionAttribute.array.set( newPositions.subarray( firstSegmentComponentLength ), secondSegmentComponentOffset );
+            colorAttribute.array.set( newColors.subarray( firstSegmentComponentLength ), secondSegmentComponentOffset );
+
+            positionAttribute.updateRange = { offset: firstSegmentComponentOffset, count: firstSegmentComponentLength + secondSegmentComponentLength };
+            colorAttribute.updateRange = { offset: firstSegmentComponentOffset, count: firstSegmentComponentLength + secondSegmentComponentLength };
+
+            pointCloudGeometry.setDrawRange( 0, MAX_POINTS );
+        }
 
         positionAttribute.needsUpdate = true;
         colorAttribute.needsUpdate = true;
-
-        if ( hasWraparound )
-        {
-            pointCloudGeometry.setDrawRange( 0, MAX_POINTS );
-        } else
-        {
-            pointCloudGeometry.setDrawRange( 0, pointBuffer.current.size );
-        }
-
         pointCloudGeometry.computeBoundingSphere();
 
     }, [ pointCloudGeometry, pointBuffer ] );
@@ -210,8 +257,6 @@ const LidarSensor = ( {
 
         const currentTime = Date.now() - startTime.current;
 
-        // No need for startFrame/endFrame anymore
-
         const scanResult = castRaysForFrame(
             sensorPosition,
             scene,
@@ -226,7 +271,6 @@ const LidarSensor = ( {
         const newPoints = scanResult.points;
         pointBuffer.current.addBatch( newPoints );
 
-        // Call the new unified update function
         updateVisualization();
 
         if ( isCapturing && frameManager.current )
