@@ -73,7 +73,7 @@ const Environment = React.memo( () =>
             </mesh>
 
             {/* Combined Static and Dynamic Instances */}
-            <SceneInstances />
+            /*<SceneInstances />*/
         </>
     );
 } );
