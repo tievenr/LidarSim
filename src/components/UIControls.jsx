@@ -122,7 +122,7 @@ const UIControls = () =>
                                     type="range"
                                     min="100"
                                     max="20000"
-                                    step="100"
+                                    step="50"
                                     value={config.pointsPerFrame}
                                     onChange={handlePointsPerFrameChange}
                                     className="w-32 h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer dark:bg-gray-700 accent-indigo-500"

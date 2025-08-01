@@ -4,12 +4,12 @@ import * as THREE from 'three';
 import { InstancedMesh2 } from '@three.ez/instanced-mesh';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils';
 
-const STATIC_BUILDINGS_COUNT = 100;
-const STATIC_TREES_COUNT = 200;
-const STATIC_STREETLIGHTS_COUNT = 50;
-const FIXED_CARS_COUNT = 2; // New count for cars that don't move
+const STATIC_BUILDINGS_COUNT = 20;
+const STATIC_TREES_COUNT = 30;
+const STATIC_STREETLIGHTS_COUNT = 30;
+const FIXED_CARS_COUNT = 30; // New count for cars that don't move
 const DYNAMIC_CARS_COUNT = 3; // Remaining cars will animate
-const ANIMATION_DISTANCE = 300; // Only animate cars within this distance from camera
+const ANIMATION_DISTANCE = 400; // Only animate cars within this distance from camera
 
 const SceneInstances = () =>
 {

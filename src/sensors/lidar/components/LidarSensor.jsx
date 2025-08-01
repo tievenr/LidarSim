@@ -14,7 +14,7 @@ import { createLidarConfig } from '../config/LidarConfig';
 import { useLidarConfig } from '../context/LidarConfigContext';
 import { CircularPointBuffer } from '../utils/CircularPointBuffer';
 
-const MAX_POINTS = 50000;
+const MAX_POINTS = 20000;
 
 // Color mapping function to convert intensity to RGB
 const mapIntensityToColor = ( intensity ) =>
