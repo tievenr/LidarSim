@@ -138,4 +138,4 @@ src/
 ## Notes
 
 - This project is intended for research, prototyping, and educational use. It is not suitable for safety-critical applications.
-- Always validate simulation results with real sensor data for production or
+- Always validate simulation results with real sensor data for production 
