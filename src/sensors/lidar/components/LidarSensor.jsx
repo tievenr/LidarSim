@@ -249,7 +249,7 @@ const LidarSensor = ( {
         if ( !sensorRef.current ) return;
 
         const now = state.clock.elapsedTime;
-        if ( now - lastUpdateTime.current < ( 1 / 60 ) ) return;
+        if ( now - lastUpdateTime.current < ( 1 / 30 ) ) return;
         lastUpdateTime.current = now;
 
         updateScanAngle( delta, scanState.current, lidarConfig.scanRate );
