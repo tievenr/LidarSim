@@ -36,7 +36,7 @@ const Environment = React.memo( () =>
             >
                 <planeGeometry args={[ 800, 800 ]} />
                 <meshStandardMaterial
-                    color="#b6e3b6"
+                    color="#18181b"
                     roughness={0.7}
                     metalness={0.08}
                 />

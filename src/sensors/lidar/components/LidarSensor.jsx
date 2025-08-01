@@ -20,7 +20,7 @@ const MAX_POINTS = 20000;
 const mapIntensityToColor = ( intensity ) =>
 {
     
-    const hue = 1 - intensity * 0.9;
+    const hue = 1 - intensity * 10;
     const color = new THREE.Color();
     color.setHSL( hue, 1.0, 0.5 );
     return [ color.r, color.g, color.b ];

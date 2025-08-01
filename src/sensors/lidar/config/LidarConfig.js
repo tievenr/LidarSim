@@ -4,9 +4,9 @@ export const DEFAULT_LIDAR_CONFIG = {
   verticalFOVMax: 52,
   numChannels: 40,
   maxRange: 70,
-  minRange: 0.2, // Reset to realistic minimum range
+  minRange: 1, // Reset to realistic minimum range
   scanRate: 2 * Math.PI * 10,
-  pointsPerFrame: 2500,
+  pointsPerFrame: 5400,
   pointRate: 200000,
 };
 
