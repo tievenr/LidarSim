@@ -19,12 +19,12 @@ const MAX_POINTS = 50000;
 // Color mapping function to convert intensity to RGB
 const mapIntensityToColor = ( intensity ) =>
 {
-    const hue = ( 1 - intensity ) * 0.65;
+    
+    const hue = 1 - intensity * 0.9;
     const color = new THREE.Color();
     color.setHSL( hue, 1.0, 0.5 );
     return [ color.r, color.g, color.b ];
 };
-
 const LidarSensor = ( {
     position = [ 0, 2, 0 ],
     config = {}
