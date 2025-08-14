@@ -19,7 +19,7 @@ const MAX_POINTS = 10000;
 // Color mapping function to convert intensity to RGB
 const mapIntensityToColor = ( intensity ) =>
 {
-    
+
     const hue = 1 - intensity * 10;
     const color = new THREE.Color();
     color.setHSL( hue, 1.0, 0.5 );
@@ -27,7 +27,9 @@ const mapIntensityToColor = ( intensity ) =>
 };
 const LidarSensor = ( {
     position = [ 0, 2, 0 ],
-    config = {}
+    config = {},
+    targetMesh = null,
+    offset = [ 0, 0, 0 ]
 } ) =>
 {
     const sensorRef = useRef();
@@ -248,6 +250,17 @@ const LidarSensor = ( {
     {
         if ( !sensorRef.current ) return;
 
+        // Update sensor position to follow target mesh
+        if ( targetMesh && targetMesh.position )
+        {
+            const targetPos = targetMesh.position;
+            sensorRef.current.position.set(
+                targetPos.x + offset[ 0 ],
+                targetPos.y + offset[ 1 ],
+                targetPos.z + offset[ 2 ]
+            );
+        }
+
         const now = state.clock.elapsedTime;
         if ( now - lastUpdateTime.current < ( 1 / 30 ) ) return;
         lastUpdateTime.current = now;
@@ -283,7 +296,7 @@ const LidarSensor = ( {
 
     return (
         <>
-            <Sphere ref={sensorRef} position={position} args={[ 0.2, 16, 16 ]}>
+            <Sphere ref={sensorRef} position={targetMesh ? [ 0, 0, 0 ] : position} args={[ 0.2, 16, 16 ]}>
                 <meshStandardMaterial color={isCapturing ? "green" : "red"} />
             </Sphere>
 
