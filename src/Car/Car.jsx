@@ -89,7 +89,7 @@ const GLBCar = ( { scale, position, rotation, onLoad, onError } ) =>
 
                 onLoad?.( carRef.current );
             }
-        }, [ gltfScene, scale, position, rotation, onLoad ] );
+        }, [ gltfScene, scale, position, rotation ] ); // Removed onLoad from dependencies
 
         return <group ref={carRef} />;
     } catch ( error )
@@ -114,6 +114,8 @@ const Car = ( {
     const [ useGLB, setUseGLB ] = useState( !useSimpleCar );
     const [ physicsBody, setPhysicsBody ] = useState( null );
 
+    // Stable car object to prevent re-renders
+    const stableCar = useRef( { mesh: null, input: null } );
 
     // Input handling for car controls
     const input = useRef( { forward: 0, turn: 0, brake: 0 } );
@@ -187,14 +189,13 @@ const Car = ( {
         setCarLoaded( true );
         carRef.current = carMesh;
 
+        // Update stable car object
+        stableCar.current.mesh = carMesh;
+        stableCar.current.input = input.current;
+
         if ( onCarReady )
         {
-            onCarReady( {
-                mesh: carMesh,
-                position: carMesh.position,
-                rotation: carMesh.rotation,
-                input: input.current
-            } );
+            onCarReady( stableCar.current );
         }
 
         console.log( 'GLB Car loaded successfully' );
@@ -215,19 +216,18 @@ const Car = ( {
         {
             setCarLoaded( true );
 
+            // Update stable car object
+            stableCar.current.mesh = carRef.current;
+            stableCar.current.input = input.current;
+
             if ( onCarReady )
             {
-                onCarReady( {
-                    mesh: carRef.current,
-                    position: carRef.current.position,
-                    rotation: carRef.current.rotation,
-                    input: input.current
-                } );
+                onCarReady( stableCar.current );
             }
 
             console.log( 'Simple car loaded successfully' );
         }
-    }, [ useGLB, onCarReady ] );
+    }, [ useGLB ] ); // Removed onCarReady from dependencies
 
     // Simple movement logic (non-physics based)
     useFrame( ( state, delta ) =>

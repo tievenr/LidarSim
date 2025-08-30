@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLidarConfig } from '../sensors/lidar/context/LidarConfigContext';
-import { PlayIcon, PauseIcon, TrashIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
+import { PlayIcon, PauseIcon, TrashIcon, DocumentArrowDownIcon, MapIcon, StopIcon } from '@heroicons/react/24/outline';
 
 const UIControls = () =>
 {
     const { config, updateConfig } = useLidarConfig();
     const [ captureStatus, setCaptureStatus ] = useState( 'idle' );
+    const [ slamStatus, setSlamStatus ] = useState( 'idle' );
     const [ frameStats, setFrameStats ] = useState( {
         frameCount: 0,
         totalPoints: 0,
@@ -13,7 +14,9 @@ const UIControls = () =>
         avgFrameRate: 0,
         pointsPerSecond: 0,
     } );
+    const [ slamStats, setSlamStats ] = useState( null );
     const intervalRef = useRef( null );
+    const slamIntervalRef = useRef( null );
 
     useEffect( () =>
     {
@@ -33,6 +36,25 @@ const UIControls = () =>
                 intervalRef.current = null;
             }
         }
+
+        // SLAM statistics polling
+        if ( slamStatus === 'active' && window.getSlamStats )
+        {
+            if ( slamIntervalRef.current ) clearInterval( slamIntervalRef.current );
+            slamIntervalRef.current = setInterval( () =>
+            {
+                const stats = window.getSlamStats();
+                setSlamStats( stats );
+            }, 1000 );
+        } else
+        {
+            if ( slamIntervalRef.current )
+            {
+                clearInterval( slamIntervalRef.current );
+                slamIntervalRef.current = null;
+            }
+        }
+
         return () =>
         {
             if ( intervalRef.current )
@@ -40,8 +62,13 @@ const UIControls = () =>
                 clearInterval( intervalRef.current );
                 intervalRef.current = null;
             }
+            if ( slamIntervalRef.current )
+            {
+                clearInterval( slamIntervalRef.current );
+                slamIntervalRef.current = null;
+            }
         };
-    }, [ captureStatus ] );
+    }, [ captureStatus, slamStatus ] );
 
     const toggleCapture = useCallback( () =>
     {
@@ -94,7 +121,59 @@ const UIControls = () =>
         window.exportLidarFrames?.();
     }, [] );
 
+    // SLAM control functions
+    const toggleSlam = useCallback( () =>
+    {
+        if ( slamStatus === 'idle' || slamStatus === 'stopped' )
+        {
+            window.startSlam?.();
+            setSlamStatus( 'active' );
+        } else
+        {
+            window.stopSlam?.();
+            setSlamStatus( 'stopped' );
+        }
+    }, [ slamStatus ] );
+
+    const handleExportSlamMap = useCallback( async () =>
+    {
+        try
+        {
+            const result = await window.exportSlamMap?.();
+            if ( result )
+            {
+                console.log( 'SLAM map exported successfully' );
+            }
+        } catch ( error )
+        {
+            console.error( 'Failed to export SLAM map:', error );
+        }
+    }, [] );
+
+    const handleExportSlamSession = useCallback( async () =>
+    {
+        try
+        {
+            const result = await window.exportSlamSession?.();
+            if ( result )
+            {
+                console.log( 'SLAM session exported successfully' );
+            }
+        } catch ( error )
+        {
+            console.error( 'Failed to export SLAM session:', error );
+        }
+    }, [] );
+
+    const handleResetSlam = useCallback( () =>
+    {
+        window.resetSlam?.();
+        setSlamStats( null );
+        setSlamStatus( 'idle' );
+    }, [] );
+
     const captureButtonIcon = captureStatus === 'capturing' ? <PauseIcon className="w-5 h-5 mr-2" /> : <PlayIcon className="w-5 h-5 mr-2" />;
+    const slamButtonIcon = slamStatus === 'active' ? <StopIcon className="w-5 h-5 mr-2" /> : <MapIcon className="w-5 h-5 mr-2" />;
     const exportButtonIcon = <DocumentArrowDownIcon className="w-4 h-4 mr-2" />;
     const clearButtonIcon = <TrashIcon className="w-4 h-4" />;
 
@@ -210,6 +289,96 @@ const UIControls = () =>
                         onClick={handleClearLidarFrames}
                         disabled={frameStats.frameCount === 0}
                         className={`py-2 px-2 rounded-md text-xs font-semibold transition-colors ${ frameStats.frameCount > 0
+                            ? 'bg-gray-700 hover:bg-gray-800 text-gray-300'
+                            : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                            }`}
+                    >
+                        {clearButtonIcon}
+                    </button>
+                </div>
+
+                <div>
+                    <h4 className="mb-2 font-semibold text-gray-300 text-xs uppercase tracking-wider">
+                        SLAM Control
+                    </h4>
+                    <button
+                        onClick={toggleSlam}
+                        className={`w-full flex items-center justify-center py-2.5 rounded-md text-sm font-semibold transition-colors ${ slamStatus === 'active'
+                            ? 'bg-red-700 hover:bg-red-800 text-white'
+                            : 'bg-blue-700 hover:bg-blue-800 text-white'
+                            }`}
+                    >
+                        {slamButtonIcon}
+                        {slamStatus === 'active' ? 'Stop' : 'Start'} SLAM
+                    </button>
+                </div>
+
+                {slamStats && (
+                    <div className="rounded-md bg-gray-800 bg-opacity-50 border border-gray-700 p-3">
+                        <h5 className="text-gray-400 font-semibold text-xs mb-2 uppercase tracking-wider">SLAM Statistics</h5>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                            <span className="text-gray-500">Scans:</span>
+                            <span className="text-indigo-300 font-semibold">{slamStats.totalScansProcessed}</span>
+
+                            <span className="text-gray-500">Map Points:</span>
+                            <span className="text-indigo-300 font-semibold">{slamStats.totalPointsAccumulated?.toLocaleString()}</span>
+
+                            <span className="text-gray-500">Trajectory:</span>
+                            <span className="text-indigo-300 font-semibold">{slamStats.trajectoryLength?.toFixed( 1 )}m</span>
+
+                            <span className="text-gray-500">Loop Closures:</span>
+                            <span className="text-green-300 font-semibold">{slamStats.loopClosures?.totalDetected || 0}</span>
+
+                            <span className="text-gray-500">Map Size:</span>
+                            <span className="text-indigo-300 font-semibold">{slamStats.mapSizeMB?.toFixed( 1 )}MB</span>
+
+                            <span className="text-gray-500">Processing:</span>
+                            <span className="text-indigo-300 font-semibold">{slamStats.averageProcessingTime?.toFixed( 1 )}ms</span>
+                        </div>
+                    </div>
+                )}
+
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleExportSlamMap}
+                        disabled={!slamStats || slamStats.totalPointsAccumulated === 0}
+                        className={`flex-1 flex items-center justify-center py-2 rounded-md text-xs font-semibold transition-colors ${ slamStats && slamStats.totalPointsAccumulated > 0
+                            ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                            : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                            }`}
+                    >
+                        {exportButtonIcon}
+                        Export Map
+                    </button>
+                    <button
+                        onClick={handleExportSlamSession}
+                        disabled={!slamStats || slamStats.totalScansProcessed === 0}
+                        className={`flex-1 flex items-center justify-center py-2 rounded-md text-xs font-semibold transition-colors ${ slamStats && slamStats.totalScansProcessed > 0
+                            ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                            : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                            }`}
+                    >
+                        {exportButtonIcon}
+                        Export Session
+                    </button>
+                </div>
+
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => window.exportPoseGraph?.()}
+                        disabled={!slamStats || slamStats.loopClosures?.totalDetected === 0}
+                        className={`flex-1 flex items-center justify-center py-2 rounded-md text-xs font-semibold transition-colors ${ slamStats && slamStats.loopClosures?.totalDetected > 0
+                            ? 'bg-green-600 hover:bg-green-700 text-white'
+                            : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                            }`}
+                    >
+                        {exportButtonIcon}
+                        Export Graph
+                    </button>
+                    <button
+                        onClick={handleResetSlam}
+                        disabled={!slamStats || slamStats.totalScansProcessed === 0}
+                        className={`py-2 px-2 rounded-md text-xs font-semibold transition-colors ${ slamStats && slamStats.totalScansProcessed > 0
                             ? 'bg-gray-700 hover:bg-gray-800 text-gray-300'
                             : 'bg-gray-800 text-gray-500 cursor-not-allowed'
                             }`}
