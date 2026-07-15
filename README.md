@@ -117,22 +117,7 @@ src/
 
 ---
 
-## Current Development Focus
-
-- **Performance Optimization:** Exploring Web Workers for parallel raycasting.
-- **Higher Fidelity:** Improving scan pattern realism to better match actual Livox MID-360 behavior.
-- **Memory Management:** Further reducing garbage collection and memory churn during intensive scans.
-- **Motion Blur Handling:** Addressing issues with moving LiDAR sensors.
-
----
-
-## Future Plans
-
-- **Multiple Sensor Support:** Integrate additional sensor types (camera, radar, ultrasonic).
-- **Scene Complexity:** Add more realistic environments and materials.
-- **Data Pipeline Integration:** Support for autonomous vehicle simulation frameworks.
-- **Real-Time Streaming:** Enable WebSocket support for live data feeds.
-
+Not continuing anymore, I've had enough of 3js 😑
 ---
 
 ## Notes
